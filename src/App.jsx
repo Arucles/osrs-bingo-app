@@ -331,9 +331,21 @@ export default function App() {
               </span>
 
               {tile.image && (
-                <span className="z-10 text-[10px] bg-emerald-600 text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-                  ¡Logrado!
-                </span>
+                <div className="z-10 bg-emerald-500 text-slate-950 rounded-full p-1 shadow-lg border border-emerald-300 flex items-center justify-center">
+                  <svg
+                    className="w-3.5 h-3.5 font-black"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3.5"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M4.5 12.75l6 6 9-13.5"
+                    />
+                  </svg>
+                </div>
               )}
             </button>
           ))}
