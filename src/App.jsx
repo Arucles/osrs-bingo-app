@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
 import { initialTiles } from "./data/bingoItems";
 
+const CAPTAIN_PIN = import.meta.env.VITE_CAPTAIN_PIN || "1234";
+
 export default function App() {
   const [teams, setTeams] = useState([
     {
@@ -22,11 +24,15 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 
-  // 1. Cargar datos iniciales desde Supabase y escuchar cambios en tiempo real
+  // Estados para control de Capitán
+  const [isCaptain, setIsCaptain] = useState(false);
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [inputPin, setInputPin] = useState("");
+  const [pinError, setPinError] = useState(false);
+
   useEffect(() => {
     fetchInitialData();
 
-    // Suscribirse a cambios en la tabla team_tiles para actualización en tiempo real
     const channel = supabase
       .channel("schema-db-changes")
       .on(
@@ -59,11 +65,7 @@ export default function App() {
   const fetchInitialData = async () => {
     try {
       setLoading(true);
-
-      // Cargar Nombres de Equipos
       const { data: dbTeams } = await supabase.from("teams").select("*");
-
-      // Cargar Casillas con Imágenes
       const { data: dbTiles } = await supabase.from("team_tiles").select("*");
 
       setTeams((prevTeams) =>
@@ -95,47 +97,51 @@ export default function App() {
     }
   };
 
-  // 2. Cambiar Nombre del Equipo en Supabase
+  // Validar PIN de Capitán
+  const handlePinSubmit = (e) => {
+    e.preventDefault();
+    if (inputPin === CAPTAIN_PIN) {
+      setIsCaptain(true);
+      setShowPinModal(false);
+      setInputPin("");
+      setPinError(false);
+    } else {
+      setPinError(true);
+    }
+  };
+
   const handleTeamNameChange = async (e) => {
     const newName = e.target.value;
-
     setTeams((prev) =>
       prev.map((t) => (t.id === activeTeamId ? { ...t, name: newName } : t)),
     );
-
     await supabase.from("teams").upsert({ id: activeTeamId, name: newName });
   };
 
-  // 3. Subir Imagen a Storage y Guardar URL en la BD
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file || !selectedTileId) return;
 
     try {
       setUploading(true);
-
       const fileExt = file.name.split(".").pop();
       const fileName = `${activeTeamId}_tile_${selectedTileId}_${Date.now()}.${fileExt}`;
-      const filePath = `${fileName}`;
 
-      // A) Subir a Storage Bucket
       const { error: uploadError } = await supabase.storage
         .from("bingo-screenshots")
-        .upload(filePath, file);
+        .upload(fileName, file);
 
       if (uploadError) throw uploadError;
 
-      // B) Obtener URL pública de la imagen
       const { data: publicUrlData } = supabase.storage
         .from("bingo-screenshots")
-        .getPublicUrl(filePath);
+        .getPublicUrl(fileName);
 
       const imageUrl = publicUrlData.publicUrl;
-
-      // C) Guardar o actualizar registro en la BD
       const selectedTile = currentTeam.tiles.find(
         (t) => t.id === selectedTileId,
       );
+
       const { error: dbError } = await supabase.from("team_tiles").upsert(
         {
           team_id: activeTeamId,
@@ -148,7 +154,6 @@ export default function App() {
 
       if (dbError) throw dbError;
 
-      // Actualizar estado local
       setTeams((prev) =>
         prev.map((t) => {
           if (t.id !== activeTeamId) return t;
@@ -161,19 +166,17 @@ export default function App() {
         }),
       );
     } catch (error) {
-      alert("Error al subir la imagen: " + error.message);
+      alert("Error al subir imagen: " + error.message);
     } finally {
       setUploading(false);
     }
   };
 
-  // 4. Eliminar Imagen de la BD
   const handleRemoveImage = async () => {
     if (!selectedTileId) return;
 
     try {
       setUploading(true);
-
       const { error } = await supabase
         .from("team_tiles")
         .update({ image_url: null })
@@ -194,7 +197,7 @@ export default function App() {
         }),
       );
     } catch (error) {
-      alert("Error al eliminar la imagen: " + error.message);
+      alert("Error al eliminar imagen: " + error.message);
     } finally {
       setUploading(false);
     }
@@ -212,7 +215,29 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 p-6 flex flex-col items-center">
+    <div className="min-h-screen bg-slate-900 text-slate-100 p-6 flex flex-col items-center relative">
+      {/* Botón superior de Estado de Capitán */}
+      <div className="absolute top-4 right-6">
+        {isCaptain ? (
+          <div className="flex items-center gap-2 bg-emerald-900/60 border border-emerald-500/50 px-3 py-1 rounded-full text-xs text-emerald-300 font-semibold">
+            <span>🛡️ Modo Capitán Activo</span>
+            <button
+              onClick={() => setIsCaptain(false)}
+              className="text-slate-400 hover:text-white underline ml-2"
+            >
+              Salir
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowPinModal(true)}
+            className="bg-slate-800 hover:bg-slate-700 border border-slate-600 px-3 py-1.5 rounded-lg text-xs font-semibold text-amber-400 transition-colors shadow"
+          >
+            🔒 Soy Capitán (Ingresar PIN)
+          </button>
+        )}
+      </div>
+
       <header className="w-full max-w-5xl mb-6">
         <h1 className="text-3xl font-bold text-center text-amber-400 mb-6 tracking-wide">
           OSRS Clan Bingo
@@ -243,7 +268,7 @@ export default function App() {
           <span className="text-slate-400 text-sm font-medium">
             Nombre del Equipo:
           </span>
-          {isEditingTitle ? (
+          {isEditingTitle && isCaptain ? (
             <input
               type="text"
               value={currentTeam.name}
@@ -258,12 +283,14 @@ export default function App() {
               <h2 className="text-xl font-bold text-amber-300">
                 {currentTeam.name || "Sin nombre"}
               </h2>
-              <button
-                onClick={() => setIsEditingTitle(true)}
-                className="text-xs text-slate-400 hover:text-white underline"
-              >
-                Editar
-              </button>
+              {isCaptain && (
+                <button
+                  onClick={() => setIsEditingTitle(true)}
+                  className="text-xs text-slate-400 hover:text-white underline"
+                >
+                  Editar
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -348,43 +375,111 @@ export default function App() {
                 )}
               </div>
 
+              {/* Botones restringidos según estado de Capitán */}
               <div className="space-y-2 pt-2">
-                <label
-                  className={`w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-2 px-4 rounded text-center block cursor-pointer transition-colors text-sm shadow ${uploading ? "opacity-50 pointer-events-none" : ""}`}
-                >
-                  {uploading
-                    ? "Procesando..."
-                    : selectedTile.image
-                      ? "Cambiar Foto"
-                      : "Subir Screenshot"}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    disabled={uploading}
-                    className="hidden"
-                  />
-                </label>
+                {isCaptain ? (
+                  <>
+                    <label
+                      className={`w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-2 px-4 rounded text-center block cursor-pointer transition-colors text-sm shadow ${uploading ? "opacity-50 pointer-events-none" : ""}`}
+                    >
+                      {uploading
+                        ? "Procesando..."
+                        : selectedTile.image
+                          ? "Cambiar Foto"
+                          : "Subir Screenshot"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        disabled={uploading}
+                        className="hidden"
+                      />
+                    </label>
 
-                {selectedTile.image && (
-                  <button
-                    onClick={handleRemoveImage}
-                    disabled={uploading}
-                    className="w-full bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 font-semibold py-2 px-4 rounded transition-colors text-sm disabled:opacity-50"
-                  >
-                    Eliminar Foto
-                  </button>
+                    {selectedTile.image && (
+                      <button
+                        onClick={handleRemoveImage}
+                        disabled={uploading}
+                        className="w-full bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 font-semibold py-2 px-4 rounded transition-colors text-sm disabled:opacity-50"
+                      >
+                        Eliminar Foto
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <div className="bg-slate-900/80 p-3 rounded border border-slate-700 text-center">
+                    <p className="text-xs text-slate-400 mb-2">
+                      Solo capitanes pueden modificar las capturas.
+                    </p>
+                    <button
+                      onClick={() => setShowPinModal(true)}
+                      className="text-xs text-amber-400 hover:text-amber-300 font-bold underline"
+                    >
+                      Ingresar PIN de Capitán
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
           ) : (
             <p className="text-slate-400 text-xs text-center py-8">
-              Haz click en cualquiera de los 25 cuadros de la grilla para subir,
-              ver o eliminar la foto.
+              Haz click en cualquiera de los 25 cuadros de la grilla para ver la
+              foto subida.
             </p>
           )}
         </div>
       </div>
+
+      {/* MODAL DE PIN DE CAPITÁN */}
+      {showPinModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 max-w-sm w-full shadow-2xl">
+            <h3 className="text-lg font-bold text-amber-400 mb-2 text-center">
+              Acceso de Capitán
+            </h3>
+            <p className="text-xs text-slate-300 mb-4 text-center">
+              Ingresa el PIN para habilitar la subida y modificación de
+              capturas.
+            </p>
+
+            <form onSubmit={handlePinSubmit} className="space-y-4">
+              <input
+                type="password"
+                placeholder="PIN secreto"
+                value={inputPin}
+                onChange={(e) => setInputPin(e.target.value)}
+                autoFocus
+                className="w-full bg-slate-900 border border-slate-700 text-white text-center text-lg tracking-widest font-bold py-2 px-3 rounded outline-none focus:border-amber-500"
+              />
+
+              {pinError && (
+                <p className="text-xs text-rose-400 font-semibold text-center">
+                  PIN incorrecto. Intenta de nuevo.
+                </p>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPinModal(false);
+                    setPinError(false);
+                  }}
+                  className="w-1/2 bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-2 rounded text-sm transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="w-1/2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-2 rounded text-sm transition-colors"
+                >
+                  Ingresar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
