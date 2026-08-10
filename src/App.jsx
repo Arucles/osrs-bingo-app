@@ -58,7 +58,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 
-  // Estado para la imagen ampliada (Modal Zoom)
+  // Estado para la imagen ampliada (Zoom solo desde el panel lateral)
   const [zoomImage, setZoomImage] = useState(null);
 
   // Estados de Capitán
@@ -410,10 +410,10 @@ export default function App() {
             const mainImage = tile.images[0];
 
             return (
-              <div
+              <button
                 key={tile.id}
                 onClick={() => setSelectedTileId(tile.id)}
-                className={`aspect-square p-2 rounded-lg border text-xs sm:text-sm font-semibold flex flex-col justify-between items-center text-center transition-all relative overflow-hidden cursor-pointer ${
+                className={`aspect-square p-2 rounded-lg border text-xs sm:text-sm font-semibold flex flex-col justify-between items-center text-center transition-all relative overflow-hidden ${
                   selectedTileId === tile.id
                     ? "border-amber-400 ring-2 ring-amber-400/50 bg-slate-800"
                     : isCompleted
@@ -427,12 +427,7 @@ export default function App() {
                   <img
                     src={mainImage}
                     alt={tile.title}
-                    onClick={(e) => {
-                      e.stopPropagation(); // Evita deseleccionar casilla
-                      setZoomImage(mainImage);
-                    }}
-                    className="absolute inset-0 w-full h-full object-cover opacity-80 hover:opacity-100 hover:scale-105 transition-all cursor-zoom-in"
-                    title="Haz clic para ver la imagen ampliada"
+                    className="absolute inset-0 w-full h-full object-cover opacity-80 transition-opacity pointer-events-none"
                   />
                 ) : null}
 
@@ -470,7 +465,7 @@ export default function App() {
                     </div>
                   )}
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
@@ -504,7 +499,7 @@ export default function App() {
                 </p>
               </div>
 
-              {/* Galería de Capturas */}
+              {/* Galería de Capturas (AQUÍ ES DONDE SE HACE CLICK PARA EL ZOOM) */}
               <div>
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-xs text-slate-400 uppercase tracking-wider block font-semibold">
@@ -530,10 +525,10 @@ export default function App() {
                           alt={`Prueba ${idx + 1}`}
                           onClick={() => setZoomImage(imgUrl)}
                           className="w-full h-28 object-cover cursor-zoom-in hover:opacity-90 transition-opacity"
-                          title="Haz clic para ampliar"
+                          title="Haz clic para agrandar imagen"
                         />
                         <span className="absolute top-1 left-1 bg-slate-950/80 text-amber-300 text-[10px] px-1.5 py-0.5 rounded border border-slate-700 font-bold pointer-events-none">
-                          Foto #{idx + 1}
+                          Foto #{idx + 1} (Clic para agrandar)
                         </span>
 
                         {isCaptain && (
@@ -606,7 +601,6 @@ export default function App() {
           className="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center z-50 p-4 cursor-zoom-out"
         >
           <div className="relative max-w-5xl max-h-[90vh] flex flex-col items-center">
-            {/* Botón para abrir en nueva pestaña */}
             <div className="flex gap-3 mb-2">
               <a
                 href={zoomImage}
@@ -615,7 +609,7 @@ export default function App() {
                 onClick={(e) => e.stopPropagation()}
                 className="bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold px-3 py-1.5 rounded-full shadow transition-colors"
               >
-                🔗 Abrir en pestañanueva
+                🔗 Abrir en pestaña nueva
               </a>
               <button
                 onClick={() => setZoomImage(null)}
