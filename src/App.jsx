@@ -58,6 +58,9 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 
+  // Estado para la imagen ampliada (Modal Zoom)
+  const [zoomImage, setZoomImage] = useState(null);
+
   // Estados de Capitán
   const [isCaptain, setIsCaptain] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
@@ -100,6 +103,15 @@ export default function App() {
     return () => {
       supabase.removeChannel(channel);
     };
+  }, []);
+
+  // Cerrar modal con tecla ESC
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") setZoomImage(null);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   const fetchInitialData = async () => {
@@ -166,7 +178,6 @@ export default function App() {
     await supabase.from("teams").upsert({ id: activeTeamId, name: newName });
   };
 
-  // Subir nueva foto (Agrega al arreglo existente)
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file || !selectedTileId) return;
@@ -225,7 +236,6 @@ export default function App() {
     }
   };
 
-  // Eliminar una foto específica por su índice
   const handleRemoveImageIndex = async (indexToRemove) => {
     if (!selectedTileId) return;
 
@@ -332,7 +342,7 @@ export default function App() {
           ))}
         </div>
 
-        {/* Nombre de Equipo y Desplegable de Integrantes */}
+        {/* Nombre de Equipo e Integrantes */}
         <div className="bg-slate-800 p-4 rounded-b-lg border border-slate-700 flex flex-col items-center gap-3">
           <div className="flex justify-center items-center gap-2">
             <span className="text-slate-400 text-sm font-medium">Equipo:</span>
@@ -400,10 +410,10 @@ export default function App() {
             const mainImage = tile.images[0];
 
             return (
-              <button
+              <div
                 key={tile.id}
                 onClick={() => setSelectedTileId(tile.id)}
-                className={`aspect-square p-2 rounded-lg border text-xs sm:text-sm font-semibold flex flex-col justify-between items-center text-center transition-all relative overflow-hidden ${
+                className={`aspect-square p-2 rounded-lg border text-xs sm:text-sm font-semibold flex flex-col justify-between items-center text-center transition-all relative overflow-hidden cursor-pointer ${
                   selectedTileId === tile.id
                     ? "border-amber-400 ring-2 ring-amber-400/50 bg-slate-800"
                     : isCompleted
@@ -417,12 +427,17 @@ export default function App() {
                   <img
                     src={mainImage}
                     alt={tile.title}
-                    className="absolute inset-0 w-full h-full object-cover opacity-80 hover:opacity-100 transition-opacity"
+                    onClick={(e) => {
+                      e.stopPropagation(); // Evita deseleccionar casilla
+                      setZoomImage(mainImage);
+                    }}
+                    className="absolute inset-0 w-full h-full object-cover opacity-80 hover:opacity-100 hover:scale-105 transition-all cursor-zoom-in"
+                    title="Haz clic para ver la imagen ampliada"
                   />
                 ) : null}
 
                 <span
-                  className={`z-10 bg-slate-950/80 px-1 py-0.5 rounded text-[11px] leading-tight ${
+                  className={`z-10 bg-slate-950/80 px-1 py-0.5 rounded text-[11px] leading-tight pointer-events-none ${
                     isCompleted
                       ? "text-amber-300 font-bold border border-amber-500/30"
                       : "text-slate-300"
@@ -431,15 +446,13 @@ export default function App() {
                   {tile.title}
                 </span>
 
-                {/* Contador / Badge */}
-                <div className="z-10 flex items-center gap-1">
+                <div className="z-10 flex items-center gap-1 pointer-events-none">
                   {tile.requiredCount > 1 && (
                     <span className="text-[10px] bg-slate-900/90 border border-slate-700 text-amber-300 px-1.5 py-0.5 rounded font-bold">
                       {tile.images.length}/{tile.requiredCount}
                     </span>
                   )}
 
-                  {/* Ticket Verde de Completado */}
                   {isCompleted && (
                     <div className="bg-emerald-500 text-slate-950 rounded-full p-1 shadow-lg border border-emerald-300 flex items-center justify-center">
                       <svg
@@ -457,7 +470,7 @@ export default function App() {
                     </div>
                   )}
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
@@ -491,7 +504,7 @@ export default function App() {
                 </p>
               </div>
 
-              {/* Galería de Capturas Subidas */}
+              {/* Galería de Capturas */}
               <div>
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-xs text-slate-400 uppercase tracking-wider block font-semibold">
@@ -515,9 +528,11 @@ export default function App() {
                         <img
                           src={imgUrl}
                           alt={`Prueba ${idx + 1}`}
-                          className="w-full h-28 object-cover"
+                          onClick={() => setZoomImage(imgUrl)}
+                          className="w-full h-28 object-cover cursor-zoom-in hover:opacity-90 transition-opacity"
+                          title="Haz clic para ampliar"
                         />
-                        <span className="absolute top-1 left-1 bg-slate-950/80 text-amber-300 text-[10px] px-1.5 py-0.5 rounded border border-slate-700 font-bold">
+                        <span className="absolute top-1 left-1 bg-slate-950/80 text-amber-300 text-[10px] px-1.5 py-0.5 rounded border border-slate-700 font-bold pointer-events-none">
                           Foto #{idx + 1}
                         </span>
 
@@ -583,6 +598,42 @@ export default function App() {
           )}
         </div>
       </div>
+
+      {/* MODAL ZOOM DE IMAGEN AMPLIADA */}
+      {zoomImage && (
+        <div
+          onClick={() => setZoomImage(null)}
+          className="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center z-50 p-4 cursor-zoom-out"
+        >
+          <div className="relative max-w-5xl max-h-[90vh] flex flex-col items-center">
+            {/* Botón para abrir en nueva pestaña */}
+            <div className="flex gap-3 mb-2">
+              <a
+                href={zoomImage}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold px-3 py-1.5 rounded-full shadow transition-colors"
+              >
+                🔗 Abrir en pestañanueva
+              </a>
+              <button
+                onClick={() => setZoomImage(null)}
+                className="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white text-xs font-bold px-3 py-1.5 rounded-full transition-colors"
+              >
+                ✕ Cerrar (ESC)
+              </button>
+            </div>
+
+            <img
+              src={zoomImage}
+              alt="Screenshot ampliada"
+              onClick={(e) => e.stopPropagation()}
+              className="max-w-full max-h-[80vh] object-contain rounded-lg border border-slate-700 shadow-2xl"
+            />
+          </div>
+        </div>
+      )}
 
       {/* MODAL DE PIN DE CAPITÁN */}
       {showPinModal && (
