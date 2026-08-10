@@ -58,7 +58,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 
-  // Estado para la imagen ampliada (Zoom solo desde el panel lateral)
+  // Estado para la imagen ampliada (Zoom desde panel lateral)
   const [zoomImage, setZoomImage] = useState(null);
 
   // Estados de Capitán
@@ -105,7 +105,6 @@ export default function App() {
     };
   }, []);
 
-  // Cerrar modal con tecla ESC
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "Escape") setZoomImage(null);
@@ -405,9 +404,19 @@ export default function App() {
       <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Grilla 5x5 */}
         <div className="lg:col-span-3 grid grid-cols-5 gap-2 bg-slate-950 p-3 rounded-xl border border-slate-800 shadow-2xl">
-          {currentTeam.tiles.map((tile) => {
+          {currentTeam.tiles.map((tile, index) => {
             const isCompleted = tile.images.length >= (tile.requiredCount || 1);
             const mainImage = tile.images[0];
+
+            // Coordenadas para recortar la foto placeholder original (5 columnas x 5 filas)
+            const col = index % 5;
+            const row = Math.floor(index / 5);
+
+            const placeholderStyle = {
+              backgroundImage: `url('/bingo-grid.jpg')`,
+              backgroundSize: "500% 500%",
+              backgroundPosition: `${(col * 100) / 4}% ${(row * 100) / 4}%`,
+            };
 
             return (
               <button
@@ -415,31 +424,38 @@ export default function App() {
                 onClick={() => setSelectedTileId(tile.id)}
                 className={`aspect-square p-2 rounded-lg border text-xs sm:text-sm font-semibold flex flex-col justify-between items-center text-center transition-all relative overflow-hidden ${
                   selectedTileId === tile.id
-                    ? "border-amber-400 ring-2 ring-amber-400/50 bg-slate-800"
+                    ? "border-amber-400 ring-2 ring-amber-400/50"
                     : isCompleted
-                      ? "border-emerald-500/50 bg-slate-900/90"
+                      ? "border-emerald-500/50"
                       : tile.images.length > 0
-                        ? "border-amber-500/40 bg-slate-900/60"
-                        : "border-slate-800 bg-slate-900/40 hover:bg-slate-800/60"
+                        ? "border-amber-500/40"
+                        : "border-slate-800"
                 }`}
+                style={!mainImage ? placeholderStyle : undefined}
               >
-                {mainImage ? (
+                {/* Si hay screenshot subida por los capitanes, reemplaza al placeholder */}
+                {mainImage && (
                   <img
                     src={mainImage}
                     alt={tile.title}
-                    className="absolute inset-0 w-full h-full object-cover opacity-80 transition-opacity pointer-events-none"
+                    className="absolute inset-0 w-full h-full object-cover opacity-90 transition-opacity pointer-events-none"
                   />
-                ) : null}
+                )}
 
-                <span
-                  className={`z-10 bg-slate-950/80 px-1 py-0.5 rounded text-[11px] leading-tight pointer-events-none ${
-                    isCompleted
-                      ? "text-amber-300 font-bold border border-amber-500/30"
-                      : "text-slate-300"
-                  }`}
-                >
-                  {tile.title}
-                </span>
+                {/* Si hay screenshot subida se mantiene el título oscuro arriba; si es placeholder no se ensucia */}
+                {mainImage ? (
+                  <span
+                    className={`z-10 bg-slate-950/80 px-1 py-0.5 rounded text-[11px] leading-tight pointer-events-none ${
+                      isCompleted
+                        ? "text-amber-300 font-bold border border-amber-500/30"
+                        : "text-slate-300"
+                    }`}
+                  >
+                    {tile.title}
+                  </span>
+                ) : (
+                  <span />
+                )}
 
                 <div className="z-10 flex items-center gap-1 pointer-events-none">
                   {tile.requiredCount > 1 && (
@@ -499,7 +515,7 @@ export default function App() {
                 </p>
               </div>
 
-              {/* Galería de Capturas (AQUÍ ES DONDE SE HACE CLICK PARA EL ZOOM) */}
+              {/* Galería de Capturas */}
               <div>
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-xs text-slate-400 uppercase tracking-wider block font-semibold">
@@ -546,7 +562,7 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="h-28 bg-slate-900 rounded border border-dashed border-slate-700 flex items-center justify-center text-slate-500 text-xs text-center p-4">
-                    Sin fotos asignadas aún
+                    Sin fotos asignadas aún (se muestra la imagen base de OSRS)
                   </div>
                 )}
               </div>
