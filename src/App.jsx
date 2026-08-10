@@ -408,13 +408,13 @@ export default function App() {
             const isCompleted = tile.images.length >= (tile.requiredCount || 1);
             const mainImage = tile.images[0];
 
-            // Coordenadas para recortar la foto placeholder original (5 columnas x 5 filas)
+            // Coordenadas para recortar la foto placeholder (sin bordes blancos)
             const col = index % 5;
             const row = Math.floor(index / 5);
 
             const placeholderStyle = {
               backgroundImage: `url('/bingo-grid.jpg')`,
-              backgroundSize: "500% 500%",
+              backgroundSize: "508% 508%", // Zoom leve para recortar líneas blancas externas
               backgroundPosition: `${(col * 100) / 4}% ${(row * 100) / 4}%`,
             };
 
@@ -433,7 +433,14 @@ export default function App() {
                 }`}
                 style={!mainImage ? placeholderStyle : undefined}
               >
-                {/* Si hay screenshot subida por los capitanes, reemplaza al placeholder */}
+                {/* Contador de progreso en la ESQUINA SUPERIOR IZQUIERDA */}
+                {tile.requiredCount > 1 && (
+                  <span className="absolute top-1 left-1 z-20 text-[10px] bg-slate-950/90 border border-amber-500/40 text-amber-300 px-1.5 py-0.5 rounded-md font-bold shadow-md pointer-events-none">
+                    {tile.images.length}/{tile.requiredCount}
+                  </span>
+                )}
+
+                {/* Imagen reemplazada tras subida */}
                 {mainImage && (
                   <img
                     src={mainImage}
@@ -442,7 +449,7 @@ export default function App() {
                   />
                 )}
 
-                {/* Si hay screenshot subida se mantiene el título oscuro arriba; si es placeholder no se ensucia */}
+                {/* Título sólo si hay captura subida */}
                 {mainImage ? (
                   <span
                     className={`z-10 bg-slate-950/80 px-1 py-0.5 rounded text-[11px] leading-tight pointer-events-none ${
@@ -457,30 +464,23 @@ export default function App() {
                   <span />
                 )}
 
-                <div className="z-10 flex items-center gap-1 pointer-events-none">
-                  {tile.requiredCount > 1 && (
-                    <span className="text-[10px] bg-slate-900/90 border border-slate-700 text-amber-300 px-1.5 py-0.5 rounded font-bold">
-                      {tile.images.length}/{tile.requiredCount}
-                    </span>
-                  )}
-
-                  {isCompleted && (
-                    <div className="bg-emerald-500 text-slate-950 rounded-full p-1 shadow-lg border border-emerald-300 flex items-center justify-center">
-                      <svg
-                        className="w-3.5 h-3.5 stroke-[3.5]"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M4.5 12.75l6 6 9-13.5"
-                        />
-                      </svg>
-                    </div>
-                  )}
-                </div>
+                {/* Ticket Verde centrado abajo */}
+                {isCompleted && (
+                  <div className="z-10 bg-emerald-500 text-slate-950 rounded-full p-1 shadow-lg border border-emerald-300 flex items-center justify-center">
+                    <svg
+                      className="w-3.5 h-3.5 stroke-[3.5]"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M4.5 12.75l6 6 9-13.5"
+                      />
+                    </svg>
+                  </div>
+                )}
               </button>
             );
           })}
