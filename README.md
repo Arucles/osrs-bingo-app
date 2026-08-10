@@ -1,3 +1,6 @@
+Interfaz visual para bingos de clan en OSRS.
+Hosteado en Vercel, usando Supabase como base de datos.
+
 # React + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
