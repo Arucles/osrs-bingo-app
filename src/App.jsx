@@ -58,7 +58,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 
-  // Estado para la imagen ampliada (Zoom desde panel lateral)
+  // Estado para la imagen ampliada
   const [zoomImage, setZoomImage] = useState(null);
 
   // Estados de Capitán
@@ -404,25 +404,15 @@ export default function App() {
       <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Grilla 5x5 */}
         <div className="lg:col-span-3 grid grid-cols-5 gap-2 bg-slate-950 p-3 rounded-xl border border-slate-800 shadow-2xl">
-          {currentTeam.tiles.map((tile, index) => {
+          {currentTeam.tiles.map((tile) => {
             const isCompleted = tile.images.length >= (tile.requiredCount || 1);
-            const mainImage = tile.images[0];
-
-            // Coordenadas para recortar la foto placeholder (sin bordes blancos)
-            const col = index % 5;
-            const row = Math.floor(index / 5);
-
-            const placeholderStyle = {
-              backgroundImage: `url('/bingo-grid.jpg')`,
-              backgroundSize: "508% 508%", // Zoom leve para recortar líneas blancas externas
-              backgroundPosition: `${(col * 100) / 4}% ${(row * 100) / 4}%`,
-            };
+            const mainImage = tile.images[0] || tile.placeholder;
 
             return (
               <button
                 key={tile.id}
                 onClick={() => setSelectedTileId(tile.id)}
-                className={`aspect-square p-2 rounded-lg border text-xs sm:text-sm font-semibold flex flex-col justify-between items-center text-center transition-all relative overflow-hidden ${
+                className={`aspect-square rounded-lg border transition-all relative overflow-hidden flex flex-col justify-between items-center p-2 ${
                   selectedTileId === tile.id
                     ? "border-amber-400 ring-2 ring-amber-400/50"
                     : isCompleted
@@ -431,28 +421,25 @@ export default function App() {
                         ? "border-amber-500/40"
                         : "border-slate-800"
                 }`}
-                style={!mainImage ? placeholderStyle : undefined}
               >
-                {/* Contador de progreso en la ESQUINA SUPERIOR IZQUIERDA */}
+                {/* Contador de progreso arriba a la izquierda */}
                 {tile.requiredCount > 1 && (
-                  <span className="absolute top-1 left-1 z-20 text-[10px] bg-slate-950/90 border border-amber-500/40 text-amber-300 px-1.5 py-0.5 rounded-md font-bold shadow-md pointer-events-none">
+                  <span className="absolute top-1.5 left-1.5 z-20 text-[10px] bg-slate-950/90 border border-amber-500/40 text-amber-300 px-1.5 py-0.5 rounded-md font-bold shadow-md pointer-events-none">
                     {tile.images.length}/{tile.requiredCount}
                   </span>
                 )}
 
-                {/* Imagen reemplazada tras subida */}
-                {mainImage && (
-                  <img
-                    src={mainImage}
-                    alt={tile.title}
-                    className="absolute inset-0 w-full h-full object-cover opacity-90 transition-opacity pointer-events-none"
-                  />
-                )}
+                {/* Imagen (Placeholder limpia o Foto subida) */}
+                <img
+                  src={mainImage}
+                  alt={tile.title}
+                  className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                />
 
-                {/* Título sólo si hay captura subida */}
-                {mainImage ? (
+                {/* Si hay imagen subida mostramos el título con fondo; si es el placeholder base dejamos ver la gráfica original */}
+                {tile.images.length > 0 ? (
                   <span
-                    className={`z-10 bg-slate-950/80 px-1 py-0.5 rounded text-[11px] leading-tight pointer-events-none ${
+                    className={`z-10 bg-slate-950/85 px-1 py-0.5 rounded text-[11px] leading-tight pointer-events-none ${
                       isCompleted
                         ? "text-amber-300 font-bold border border-amber-500/30"
                         : "text-slate-300"
@@ -464,7 +451,7 @@ export default function App() {
                   <span />
                 )}
 
-                {/* Ticket Verde centrado abajo */}
+                {/* Ticket verde al completar la cuota */}
                 {isCompleted && (
                   <div className="z-10 bg-emerald-500 text-slate-950 rounded-full p-1 shadow-lg border border-emerald-300 flex items-center justify-center">
                     <svg
@@ -562,7 +549,7 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="h-28 bg-slate-900 rounded border border-dashed border-slate-700 flex items-center justify-center text-slate-500 text-xs text-center p-4">
-                    Sin fotos asignadas aún (se muestra la imagen base de OSRS)
+                    Sin fotos asignadas aún
                   </div>
                 )}
               </div>
