@@ -4,7 +4,6 @@ import { initialTiles } from "./data/bingoItems";
 
 const CAPTAIN_PIN = import.meta.env.VITE_CAPTAIN_PIN || "1234";
 
-// Lista fija de integrantes según la imagen
 const TEAM_MEMBERS = {
   team1: [
     "Suertudont",
@@ -43,12 +42,12 @@ export default function App() {
     {
       id: "team1",
       name: "Team Suertudont",
-      tiles: initialTiles.map((t) => ({ ...t, image: null })),
+      tiles: initialTiles.map((t) => ({ ...t, images: [] })),
     },
     {
       id: "team2",
       name: "Team Rhaegnar",
-      tiles: initialTiles.map((t) => ({ ...t, image: null })),
+      tiles: initialTiles.map((t) => ({ ...t, images: [] })),
     },
   ]);
 
@@ -59,7 +58,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 
-  // Estados para control de Capitán
+  // Estados de Capitán
   const [isCaptain, setIsCaptain] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
   const [inputPin, setInputPin] = useState("");
@@ -74,16 +73,22 @@ export default function App() {
         "postgres_changes",
         { event: "*", schema: "public", table: "team_tiles" },
         (payload) => {
-          const { team_id, tile_id, image_url } = payload.new || payload.old;
+          const { team_id, tile_id, image_urls, image_url } =
+            payload.new || payload.old;
+          const urls =
+            image_urls && image_urls.length > 0
+              ? image_urls
+              : image_url
+                ? [image_url]
+                : [];
+
           setTeams((prev) =>
             prev.map((t) => {
               if (t.id !== team_id) return t;
               return {
                 ...t,
                 tiles: t.tiles.map((tile) =>
-                  tile.id === tile_id
-                    ? { ...tile, image: image_url || null }
-                    : tile,
+                  tile.id === tile_id ? { ...tile, images: urls } : tile,
                 ),
               };
             }),
@@ -112,9 +117,18 @@ export default function App() {
             const foundTile = dbTiles?.find(
               (t) => t.team_id === team.id && t.tile_id === tile.id,
             );
+            let urls = [];
+            if (foundTile) {
+              urls =
+                foundTile.image_urls && foundTile.image_urls.length > 0
+                  ? foundTile.image_urls
+                  : foundTile.image_url
+                    ? [foundTile.image_url]
+                    : [];
+            }
             return {
               ...tile,
-              image: foundTile ? foundTile.image_url : null,
+              images: urls,
             };
           });
 
@@ -152,6 +166,7 @@ export default function App() {
     await supabase.from("teams").upsert({ id: activeTeamId, name: newName });
   };
 
+  // Subir nueva foto (Agrega al arreglo existente)
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file || !selectedTileId) return;
@@ -175,13 +190,15 @@ export default function App() {
       const selectedTile = currentTeam.tiles.find(
         (t) => t.id === selectedTileId,
       );
+      const updatedImages = [...(selectedTile.images || []), imageUrl];
 
       const { error: dbError } = await supabase.from("team_tiles").upsert(
         {
           team_id: activeTeamId,
           tile_id: selectedTileId,
           title: selectedTile.title,
-          image_url: imageUrl,
+          image_urls: updatedImages,
+          image_url: updatedImages[0] || null,
         },
         { onConflict: "team_id,tile_id" },
       );
@@ -194,7 +211,9 @@ export default function App() {
           return {
             ...t,
             tiles: t.tiles.map((tile) =>
-              tile.id === selectedTileId ? { ...tile, image: imageUrl } : tile,
+              tile.id === selectedTileId
+                ? { ...tile, images: updatedImages }
+                : tile,
             ),
           };
         }),
@@ -206,16 +225,29 @@ export default function App() {
     }
   };
 
-  const handleRemoveImage = async () => {
+  // Eliminar una foto específica por su índice
+  const handleRemoveImageIndex = async (indexToRemove) => {
     if (!selectedTileId) return;
 
     try {
       setUploading(true);
-      const { error } = await supabase
-        .from("team_tiles")
-        .update({ image_url: null })
-        .eq("team_id", activeTeamId)
-        .eq("tile_id", selectedTileId);
+      const selectedTile = currentTeam.tiles.find(
+        (t) => t.id === selectedTileId,
+      );
+      const updatedImages = selectedTile.images.filter(
+        (_, idx) => idx !== indexToRemove,
+      );
+
+      const { error } = await supabase.from("team_tiles").upsert(
+        {
+          team_id: activeTeamId,
+          tile_id: selectedTileId,
+          title: selectedTile.title,
+          image_urls: updatedImages,
+          image_url: updatedImages[0] || null,
+        },
+        { onConflict: "team_id,tile_id" },
+      );
 
       if (error) throw error;
 
@@ -225,7 +257,9 @@ export default function App() {
           return {
             ...t,
             tiles: t.tiles.map((tile) =>
-              tile.id === selectedTileId ? { ...tile, image: null } : tile,
+              tile.id === selectedTileId
+                ? { ...tile, images: updatedImages }
+                : tile,
             ),
           };
         }),
@@ -329,7 +363,6 @@ export default function App() {
             )}
           </div>
 
-          {/* Botón Desplegable para Miembros */}
           <button
             onClick={() => setShowMembers(!showMembers)}
             className="flex items-center gap-2 text-xs font-semibold text-amber-400 hover:text-amber-300 bg-slate-900/80 px-3 py-1.5 rounded-full border border-slate-700 transition-colors"
@@ -338,7 +371,6 @@ export default function App() {
             <span className="text-[10px]">{showMembers ? "▲" : "▼"}</span>
           </button>
 
-          {/* Lista desplegable de Miembros */}
           {showMembers && (
             <div className="w-full max-w-xl bg-slate-950/90 p-4 rounded-lg border border-slate-700 mt-2">
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -363,54 +395,71 @@ export default function App() {
       <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Grilla 5x5 */}
         <div className="lg:col-span-3 grid grid-cols-5 gap-2 bg-slate-950 p-3 rounded-xl border border-slate-800 shadow-2xl">
-          {currentTeam.tiles.map((tile) => (
-            <button
-              key={tile.id}
-              onClick={() => setSelectedTileId(tile.id)}
-              className={`aspect-square p-2 rounded-lg border text-xs sm:text-sm font-semibold flex flex-col justify-between items-center text-center transition-all relative overflow-hidden ${
-                selectedTileId === tile.id
-                  ? "border-amber-400 ring-2 ring-amber-400/50 bg-slate-800"
-                  : tile.image
-                    ? "border-emerald-500/50 bg-slate-900/90"
-                    : "border-slate-800 bg-slate-900/40 hover:bg-slate-800/60"
-              }`}
-            >
-              {tile.image ? (
-                <img
-                  src={tile.image}
-                  alt={tile.title}
-                  className="absolute inset-0 w-full h-full object-cover opacity-80 hover:opacity-100 transition-opacity"
-                />
-              ) : null}
+          {currentTeam.tiles.map((tile) => {
+            const isCompleted = tile.images.length >= (tile.requiredCount || 1);
+            const mainImage = tile.images[0];
 
-              <span
-                className={`z-10 bg-slate-950/80 px-1 py-0.5 rounded text-[11px] leading-tight ${
-                  tile.image
-                    ? "text-amber-300 font-bold border border-amber-500/30"
-                    : "text-slate-300"
+            return (
+              <button
+                key={tile.id}
+                onClick={() => setSelectedTileId(tile.id)}
+                className={`aspect-square p-2 rounded-lg border text-xs sm:text-sm font-semibold flex flex-col justify-between items-center text-center transition-all relative overflow-hidden ${
+                  selectedTileId === tile.id
+                    ? "border-amber-400 ring-2 ring-amber-400/50 bg-slate-800"
+                    : isCompleted
+                      ? "border-emerald-500/50 bg-slate-900/90"
+                      : tile.images.length > 0
+                        ? "border-amber-500/40 bg-slate-900/60"
+                        : "border-slate-800 bg-slate-900/40 hover:bg-slate-800/60"
                 }`}
               >
-                {tile.title}
-              </span>
+                {mainImage ? (
+                  <img
+                    src={mainImage}
+                    alt={tile.title}
+                    className="absolute inset-0 w-full h-full object-cover opacity-80 hover:opacity-100 transition-opacity"
+                  />
+                ) : null}
 
-              {tile.image && (
-                <div className="z-10 bg-emerald-500 text-slate-950 rounded-full p-1 shadow-lg border border-emerald-300 flex items-center justify-center">
-                  <svg
-                    className="w-3.5 h-3.5 stroke-[3.5]"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M4.5 12.75l6 6 9-13.5"
-                    />
-                  </svg>
+                <span
+                  className={`z-10 bg-slate-950/80 px-1 py-0.5 rounded text-[11px] leading-tight ${
+                    isCompleted
+                      ? "text-amber-300 font-bold border border-amber-500/30"
+                      : "text-slate-300"
+                  }`}
+                >
+                  {tile.title}
+                </span>
+
+                {/* Contador / Badge */}
+                <div className="z-10 flex items-center gap-1">
+                  {tile.requiredCount > 1 && (
+                    <span className="text-[10px] bg-slate-900/90 border border-slate-700 text-amber-300 px-1.5 py-0.5 rounded font-bold">
+                      {tile.images.length}/{tile.requiredCount}
+                    </span>
+                  )}
+
+                  {/* Ticket Verde de Completado */}
+                  {isCompleted && (
+                    <div className="bg-emerald-500 text-slate-950 rounded-full p-1 shadow-lg border border-emerald-300 flex items-center justify-center">
+                      <svg
+                        className="w-3.5 h-3.5 stroke-[3.5]"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M4.5 12.75l6 6 9-13.5"
+                        />
+                      </svg>
+                    </div>
+                  )}
                 </div>
-              )}
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
 
         {/* Panel CRUD Lateral */}
@@ -425,8 +474,11 @@ export default function App() {
                 <span className="text-xs text-slate-400 uppercase tracking-wider block font-semibold mb-1">
                   Ítem Requerido:
                 </span>
-                <p className="text-sm font-bold text-slate-100 bg-slate-900 p-2.5 rounded border border-slate-700">
-                  {selectedTile.title}
+                <p className="text-sm font-bold text-slate-100 bg-slate-900 p-2.5 rounded border border-slate-700 flex justify-between items-center">
+                  <span>{selectedTile.title}</span>
+                  <span className="text-xs text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                    Req: {selectedTile.requiredCount || 1}
+                  </span>
                 </p>
               </div>
 
@@ -439,55 +491,75 @@ export default function App() {
                 </p>
               </div>
 
+              {/* Galería de Capturas Subidas */}
               <div>
-                <span className="text-xs text-slate-400 uppercase tracking-wider block font-semibold mb-1">
-                  Prueba (Screenshot):
-                </span>
-                {selectedTile.image ? (
-                  <div className="relative rounded overflow-hidden border border-emerald-500/50">
-                    <img
-                      src={selectedTile.image}
-                      alt="Prueba subida"
-                      className="w-full h-36 object-cover"
-                    />
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-xs text-slate-400 uppercase tracking-wider block font-semibold">
+                    Pruebas ({selectedTile.images.length}/
+                    {selectedTile.requiredCount}):
+                  </span>
+                  {selectedTile.images.length >= selectedTile.requiredCount && (
+                    <span className="text-[10px] text-emerald-400 font-bold uppercase">
+                      ✓ Meta alcanzada
+                    </span>
+                  )}
+                </div>
+
+                {selectedTile.images.length > 0 ? (
+                  <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                    {selectedTile.images.map((imgUrl, idx) => (
+                      <div
+                        key={idx}
+                        className="relative rounded overflow-hidden border border-slate-700 group"
+                      >
+                        <img
+                          src={imgUrl}
+                          alt={`Prueba ${idx + 1}`}
+                          className="w-full h-28 object-cover"
+                        />
+                        <span className="absolute top-1 left-1 bg-slate-950/80 text-amber-300 text-[10px] px-1.5 py-0.5 rounded border border-slate-700 font-bold">
+                          Foto #{idx + 1}
+                        </span>
+
+                        {isCaptain && (
+                          <button
+                            onClick={() => handleRemoveImageIndex(idx)}
+                            disabled={uploading}
+                            className="absolute top-1 right-1 bg-rose-600/90 hover:bg-rose-600 text-white p-1 rounded transition-colors text-xs"
+                            title="Eliminar esta foto"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 ) : (
-                  <div className="h-36 bg-slate-900 rounded border border-dashed border-slate-700 flex items-center justify-center text-slate-500 text-xs text-center p-4">
-                    Sin foto asignada aún
+                  <div className="h-28 bg-slate-900 rounded border border-dashed border-slate-700 flex items-center justify-center text-slate-500 text-xs text-center p-4">
+                    Sin fotos asignadas aún
                   </div>
                 )}
               </div>
 
+              {/* Acciones de Capitán */}
               <div className="space-y-2 pt-2">
                 {isCaptain ? (
-                  <>
-                    <label
-                      className={`w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-2 px-4 rounded text-center block cursor-pointer transition-colors text-sm shadow ${uploading ? "opacity-50 pointer-events-none" : ""}`}
-                    >
-                      {uploading
-                        ? "Procesando..."
-                        : selectedTile.image
-                          ? "Cambiar Foto"
-                          : "Subir Screenshot"}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        disabled={uploading}
-                        className="hidden"
-                      />
-                    </label>
-
-                    {selectedTile.image && (
-                      <button
-                        onClick={handleRemoveImage}
-                        disabled={uploading}
-                        className="w-full bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 font-semibold py-2 px-4 rounded transition-colors text-sm disabled:opacity-50"
-                      >
-                        Eliminar Foto
-                      </button>
-                    )}
-                  </>
+                  <label
+                    className={`w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-2 px-4 rounded text-center block cursor-pointer transition-colors text-sm shadow ${uploading ? "opacity-50 pointer-events-none" : ""}`}
+                  >
+                    {uploading
+                      ? "Procesando..."
+                      : selectedTile.images.length > 0
+                        ? "Añadir Otra Foto"
+                        : "Subir Screenshot"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      disabled={uploading}
+                      className="hidden"
+                    />
+                  </label>
                 ) : (
                   <div className="bg-slate-900/80 p-3 rounded border border-slate-700 text-center">
                     <p className="text-xs text-slate-400 mb-2">
@@ -505,8 +577,8 @@ export default function App() {
             </div>
           ) : (
             <p className="text-slate-400 text-xs text-center py-8">
-              Haz click en cualquiera de los 25 cuadros de la grilla para ver la
-              foto subida.
+              Haz click en cualquiera de los 25 cuadros de la grilla para ver
+              las fotos subidas.
             </p>
           )}
         </div>
