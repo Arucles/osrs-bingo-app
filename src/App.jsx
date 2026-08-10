@@ -316,7 +316,7 @@ export default function App() {
         )}
       </div>
 
-      <header className="w-full max-w-5xl mb-6">
+      <header className="w-full max-w-6xl mb-6">
         <h1 className="text-3xl font-bold text-center text-amber-400 mb-6 tracking-wide">
           OSRS Clan Bingo
         </h1>
@@ -400,10 +400,10 @@ export default function App() {
         </div>
       </header>
 
-      {/* Grid 5x5 + Panel Lateral */}
-      <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Grilla 5x5 */}
-        <div className="lg:col-span-3 grid grid-cols-5 gap-2 bg-slate-950 p-3 rounded-xl border border-slate-800 shadow-2xl">
+      {/* Grid 5x5 Ampliado + Panel Lateral */}
+      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Grilla 5x5 con mayor tamaño (h-36 / min-h-[130px]) */}
+        <div className="lg:col-span-3 grid grid-cols-5 gap-3 bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-2xl">
           {currentTeam.tiles.map((tile) => {
             const isCompleted = tile.images.length >= (tile.requiredCount || 1);
             const mainImage = tile.images[0] || tile.placeholder;
@@ -412,48 +412,47 @@ export default function App() {
               <button
                 key={tile.id}
                 onClick={() => setSelectedTileId(tile.id)}
-                className={`aspect-square rounded-lg border transition-all relative overflow-hidden flex flex-col justify-between items-center p-2 ${
+                className={`h-32 sm:h-36 rounded-lg border transition-all relative overflow-hidden flex flex-col justify-between items-center p-2 ${
                   selectedTileId === tile.id
-                    ? "border-amber-400 ring-2 ring-amber-400/50"
+                    ? "border-amber-400 ring-2 ring-amber-400/50 scale-[1.02] z-20"
                     : isCompleted
-                      ? "border-emerald-500/50"
+                      ? "border-emerald-500/60 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
                       : tile.images.length > 0
-                        ? "border-amber-500/40"
-                        : "border-slate-800"
+                        ? "border-amber-500/50"
+                        : "border-slate-800 hover:border-slate-700"
                 }`}
               >
-                {/* Contador de progreso arriba a la izquierda */}
+                {/* Contador de progreso en la ESQUINA SUPERIOR IZQUIERDA */}
                 {tile.requiredCount > 1 && (
-                  <span className="absolute top-1.5 left-1.5 z-20 text-[10px] bg-slate-950/90 border border-amber-500/40 text-amber-300 px-1.5 py-0.5 rounded-md font-bold shadow-md pointer-events-none">
+                  <span className="absolute top-1.5 left-1.5 z-30 text-[10px] bg-slate-950/90 border border-amber-500/50 text-amber-300 px-1.5 py-0.5 rounded font-bold shadow pointer-events-none">
                     {tile.images.length}/{tile.requiredCount}
                   </span>
                 )}
 
-                {/* Imagen (Placeholder limpia o Foto subida) */}
+                {/* Imagen de fondo */}
                 <img
                   src={mainImage}
                   alt={tile.title}
                   className="absolute inset-0 w-full h-full object-cover pointer-events-none"
                 />
 
-                {/* Si hay imagen subida mostramos el título con fondo; si es el placeholder base dejamos ver la gráfica original */}
-                {tile.images.length > 0 ? (
-                  <span
-                    className={`z-10 bg-slate-950/85 px-1 py-0.5 rounded text-[11px] leading-tight pointer-events-none ${
-                      isCompleted
-                        ? "text-amber-300 font-bold border border-amber-500/30"
-                        : "text-slate-300"
-                    }`}
-                  >
-                    {tile.title}
-                  </span>
-                ) : (
-                  <span />
-                )}
+                {/* Espaciador superior para que el texto no tape el contador */}
+                <div className="w-full h-4 pointer-events-none" />
 
-                {/* Ticket verde al completar la cuota */}
+                {/* Título en la parte inferior con mejor legibilidad */}
+                <span
+                  className={`z-20 bg-slate-950/90 backdrop-blur-xs px-2 py-1 rounded text-[10px] sm:text-[11px] leading-tight text-center w-full truncate border border-slate-800 pointer-events-none ${
+                    isCompleted
+                      ? "text-amber-300 font-bold border-amber-500/40"
+                      : "text-slate-200 font-medium"
+                  }`}
+                >
+                  {tile.title}
+                </span>
+
+                {/* Ticket verde flotando abajo a la derecha o centrado */}
                 {isCompleted && (
-                  <div className="z-10 bg-emerald-500 text-slate-950 rounded-full p-1 shadow-lg border border-emerald-300 flex items-center justify-center">
+                  <div className="absolute bottom-2 right-2 z-30 bg-emerald-500 text-slate-950 rounded-full p-1 shadow-lg border border-emerald-300 flex items-center justify-center">
                     <svg
                       className="w-3.5 h-3.5 stroke-[3.5]"
                       fill="none"
@@ -651,7 +650,7 @@ export default function App() {
                 value={inputPin}
                 onChange={(e) => setInputPin(e.target.value)}
                 autoFocus
-                className="w-full bg-slate-900 border border-slate-700 text-white text-center text-lg tracking-widest font-bold py-2 px-3 rounded outline-none focus:border-amber-500"
+                className="w-xl bg-slate-900 border border-slate-700 text-white text-center text-lg tracking-widest font-bold py-2 px-3 rounded outline-none focus:border-amber-500"
               />
 
               {pinError && (
