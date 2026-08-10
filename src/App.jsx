@@ -240,7 +240,7 @@ export default function App() {
 
       <header className="w-full max-w-5xl mb-6">
         <h1 className="text-3xl font-bold text-center text-amber-400 mb-6 tracking-wide">
-          OSRS Clan Bingo
+          Bingo RCH (14-16 Agosto 2026)
         </h1>
 
         {/* Pestañas de Selección */}
@@ -353,6 +353,16 @@ export default function App() {
                 </span>
                 <p className="text-sm font-bold text-slate-100 bg-slate-900 p-2.5 rounded border border-slate-700">
                   {selectedTile.title}
+                </p>
+              </div>
+
+              {/* DESCRIPCIÓN */}
+              <div>
+                <span className="text-xs text-slate-400 uppercase tracking-wider block font-semibold mb-1">
+                  Regla / Descripción:
+                </span>
+                <p className="text-xs text-amber-200/90 bg-slate-900/90 p-2.5 rounded border border-amber-500/20 leading-relaxed italic">
+                  {selectedTile.description || "Sin descripción"}
                 </p>
               </div>
 
