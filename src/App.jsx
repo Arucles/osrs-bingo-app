@@ -318,7 +318,7 @@ export default function App() {
 
       <header className="w-full max-w-6xl mb-6">
         <h1 className="text-3xl font-bold text-center text-amber-400 mb-6 tracking-wide">
-          OSRS Clan Bingo
+          Bingo RCH 14-16 Agosto 2026
         </h1>
 
         {/* Pestañas de Selección */}
