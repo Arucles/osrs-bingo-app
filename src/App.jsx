@@ -4,7 +4,7 @@ import { initialTiles } from "./data/bingoItems";
 
 const CAPTAIN_PIN = import.meta.env.VITE_CAPTAIN_PIN || "1234";
 
-// Lista fija de integrantes
+// Lista fija de integrantes según la imagen
 const TEAM_MEMBERS = {
   team1: [
     "Suertudont",
@@ -47,7 +47,7 @@ export default function App() {
     },
     {
       id: "team2",
-      name: "Team Rhaegar",
+      name: "Team Rhaegnar",
       tiles: initialTiles.map((t) => ({ ...t, image: null })),
     },
   ]);
@@ -55,7 +55,7 @@ export default function App() {
   const [activeTeamId, setActiveTeamId] = useState("team1");
   const [selectedTileId, setSelectedTileId] = useState(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [showMembers, setShowMembers] = useState(false); // Estado para el desplegable de miembros
+  const [showMembers, setShowMembers] = useState(false);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 
@@ -340,7 +340,7 @@ export default function App() {
 
           {/* Lista desplegable de Miembros */}
           {showMembers && (
-            <div className="w-full max-w-xl bg-slate-950/90 p-4 rounded-lg border border-slate-700 mt-2 animate-fadeIn">
+            <div className="w-full max-w-xl bg-slate-950/90 p-4 rounded-lg border border-slate-700 mt-2">
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {currentMembers.map((member, index) => (
                   <div
