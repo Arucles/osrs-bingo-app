@@ -4,16 +4,50 @@ import { initialTiles } from "./data/bingoItems";
 
 const CAPTAIN_PIN = import.meta.env.VITE_CAPTAIN_PIN || "1234";
 
+// Lista fija de integrantes
+const TEAM_MEMBERS = {
+  team1: [
+    "Suertudont",
+    "Queen Pulga",
+    "Sebaspb",
+    "Fotopata",
+    "Regladiont",
+    "Saeko Jaeger",
+    "ThightsLover",
+    "Narizon",
+    "Neldo",
+    "Karlos",
+    "Sofia Sykes",
+    "Conejo",
+    "Tio Zombie",
+  ],
+  team2: [
+    "Rhaegnar",
+    "Pajau",
+    "Deiwanito",
+    "Iron Coronao",
+    "Son Horas",
+    "SirPoo",
+    "Thezita",
+    "Arucles",
+    "Kasuwu",
+    "Shiron",
+    "Zorrinha",
+    "SanSebastian",
+    "Sickz",
+  ],
+};
+
 export default function App() {
   const [teams, setTeams] = useState([
     {
       id: "team1",
-      name: "Team 1",
+      name: "Team Suertudont",
       tiles: initialTiles.map((t) => ({ ...t, image: null })),
     },
     {
       id: "team2",
-      name: "Team 2",
+      name: "Team Rhaegar",
       tiles: initialTiles.map((t) => ({ ...t, image: null })),
     },
   ]);
@@ -21,6 +55,7 @@ export default function App() {
   const [activeTeamId, setActiveTeamId] = useState("team1");
   const [selectedTileId, setSelectedTileId] = useState(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [showMembers, setShowMembers] = useState(false); // Estado para el desplegable de miembros
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 
@@ -97,7 +132,6 @@ export default function App() {
     }
   };
 
-  // Validar PIN de Capitán
   const handlePinSubmit = (e) => {
     e.preventDefault();
     if (inputPin === CAPTAIN_PIN) {
@@ -205,6 +239,7 @@ export default function App() {
 
   const currentTeam = teams.find((t) => t.id === activeTeamId);
   const selectedTile = currentTeam?.tiles.find((t) => t.id === selectedTileId);
+  const currentMembers = TEAM_MEMBERS[activeTeamId] || [];
 
   if (loading) {
     return (
@@ -240,7 +275,7 @@ export default function App() {
 
       <header className="w-full max-w-5xl mb-6">
         <h1 className="text-3xl font-bold text-center text-amber-400 mb-6 tracking-wide">
-          Bingo RCH (14-16 Agosto 2026)
+          OSRS Clan Bingo
         </h1>
 
         {/* Pestañas de Selección */}
@@ -263,34 +298,62 @@ export default function App() {
           ))}
         </div>
 
-        {/* Editar Nombre de Equipo */}
-        <div className="flex justify-center items-center gap-2 bg-slate-800 p-4 rounded-b-lg border border-slate-700">
-          <span className="text-slate-400 text-sm font-medium">
-            Nombre del Equipo:
-          </span>
-          {isEditingTitle && isCaptain ? (
-            <input
-              type="text"
-              value={currentTeam.name}
-              onChange={handleTeamNameChange}
-              onBlur={() => setIsEditingTitle(false)}
-              onKeyDown={(e) => e.key === "Enter" && setIsEditingTitle(false)}
-              autoFocus
-              className="bg-slate-950 text-amber-300 font-bold px-3 py-1 rounded border border-amber-500 outline-none"
-            />
-          ) : (
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-amber-300">
-                {currentTeam.name || "Sin nombre"}
-              </h2>
-              {isCaptain && (
-                <button
-                  onClick={() => setIsEditingTitle(true)}
-                  className="text-xs text-slate-400 hover:text-white underline"
-                >
-                  Editar
-                </button>
-              )}
+        {/* Nombre de Equipo y Desplegable de Integrantes */}
+        <div className="bg-slate-800 p-4 rounded-b-lg border border-slate-700 flex flex-col items-center gap-3">
+          <div className="flex justify-center items-center gap-2">
+            <span className="text-slate-400 text-sm font-medium">Equipo:</span>
+            {isEditingTitle && isCaptain ? (
+              <input
+                type="text"
+                value={currentTeam.name}
+                onChange={handleTeamNameChange}
+                onBlur={() => setIsEditingTitle(false)}
+                onKeyDown={(e) => e.key === "Enter" && setIsEditingTitle(false)}
+                autoFocus
+                className="bg-slate-950 text-amber-300 font-bold px-3 py-1 rounded border border-amber-500 outline-none"
+              />
+            ) : (
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold text-amber-300">
+                  {currentTeam.name || "Sin nombre"}
+                </h2>
+                {isCaptain && (
+                  <button
+                    onClick={() => setIsEditingTitle(true)}
+                    className="text-xs text-slate-400 hover:text-white underline"
+                  >
+                    Editar
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Botón Desplegable para Miembros */}
+          <button
+            onClick={() => setShowMembers(!showMembers)}
+            className="flex items-center gap-2 text-xs font-semibold text-amber-400 hover:text-amber-300 bg-slate-900/80 px-3 py-1.5 rounded-full border border-slate-700 transition-colors"
+          >
+            <span>👥 Integrantes ({currentMembers.length})</span>
+            <span className="text-[10px]">{showMembers ? "▲" : "▼"}</span>
+          </button>
+
+          {/* Lista desplegable de Miembros */}
+          {showMembers && (
+            <div className="w-full max-w-xl bg-slate-950/90 p-4 rounded-lg border border-slate-700 mt-2 animate-fadeIn">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {currentMembers.map((member, index) => (
+                  <div
+                    key={index}
+                    className="bg-slate-900/80 border border-slate-800 px-2.5 py-1.5 rounded text-xs text-slate-300 flex items-center gap-2"
+                  >
+                    <span className="text-amber-400/70 font-mono text-[10px]">
+                      {index + 1}.
+                    </span>
+                    <span className="font-medium truncate">{member}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -333,10 +396,9 @@ export default function App() {
               {tile.image && (
                 <div className="z-10 bg-emerald-500 text-slate-950 rounded-full p-1 shadow-lg border border-emerald-300 flex items-center justify-center">
                   <svg
-                    className="w-3.5 h-3.5 font-black"
+                    className="w-3.5 h-3.5 stroke-[3.5]"
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="3.5"
                     viewBox="0 0 24 24"
                   >
                     <path
@@ -368,7 +430,6 @@ export default function App() {
                 </p>
               </div>
 
-              {/* DESCRIPCIÓN */}
               <div>
                 <span className="text-xs text-slate-400 uppercase tracking-wider block font-semibold mb-1">
                   Regla / Descripción:
@@ -397,7 +458,6 @@ export default function App() {
                 )}
               </div>
 
-              {/* Botones restringidos según estado de Capitán */}
               <div className="space-y-2 pt-2">
                 {isCaptain ? (
                   <>
