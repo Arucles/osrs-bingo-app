@@ -37,9 +37,6 @@ const TEAM_MEMBERS = {
   ],
 };
 
-// Paleta de cada equipo. Son triples RGB porque se inyectan en las variables
-// --accent-* que lee tailwind.config.js, y asi los modificadores de opacidad
-// (bg-accent-500/10) siguen funcionando.
 const TEAM_THEMES = {
   team1: {
     name: "Oro",
@@ -67,7 +64,6 @@ const TEAM_THEMES = {
 
 const isTileDone = (tile) => tile.images.length >= (tile.requiredCount || 1);
 
-// Gana el equipo que complete mas casillas.
 const getTeamProgress = (team) => ({
   tilesDone: team.tiles.filter(isTileDone).length,
   totalTiles: team.tiles.length,
@@ -81,7 +77,6 @@ function Scoreboard({ teams, activeTeamId, onSelectTeam }) {
     progress: getTeamProgress(team),
   }));
 
-  // Gana el equipo que complete mas casillas.
   const ranked = [...stats].sort(
     (a, b) => b.progress.tilesDone - a.progress.tilesDone,
   );
@@ -98,11 +93,12 @@ function Scoreboard({ teams, activeTeamId, onSelectTeam }) {
 
   return (
     <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 mb-4">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-bold text-slate-200 uppercase tracking-wider">
-          ⚔️ Marcador
+      <div className="relative flex items-center justify-center mb-4 min-h-[24px]">
+        {/* Tamaño aumentado para "MARCADOR" */}
+        <h2 className="font-osrs text-base sm:text-lg text-slate-200 uppercase tracking-wider text-center">
+          ⚔️ MARCADOR
         </h2>
-        <span className="text-xs font-semibold text-slate-400">
+        <span className="absolute right-0 text-xs font-semibold text-slate-400">
           {leadLabel}
         </span>
       </div>
@@ -130,7 +126,8 @@ function Scoreboard({ teams, activeTeamId, onSelectTeam }) {
               <div className="flex items-center justify-between gap-2 mb-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-accent-400" />
-                  <span className="font-bold text-sm text-accent-300 truncate">
+                  {/* Modificar aquí el tamaño */}
+                  <span className="font-osrs text-xl sm:text-2xl text-accent-300 py-0.5">
                     {team.name || "Sin nombre"}
                   </span>
                 </div>
@@ -191,10 +188,8 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 
-  // Estado para la imagen ampliada
   const [zoomImage, setZoomImage] = useState(null);
 
-  // Estados de Capitán
   const [isCaptain, setIsCaptain] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
   const [inputPin, setInputPin] = useState("");
@@ -431,7 +426,6 @@ export default function App() {
       style={activeTheme.vars}
       className="accent-transition min-h-screen bg-slate-900 text-slate-100 p-6 flex flex-col items-center relative"
     >
-      {/* Botón superior de Estado de Capitán */}
       <div className="absolute top-4 right-6">
         {isCaptain ? (
           <div className="flex items-center gap-2 bg-emerald-900/60 border border-emerald-500/50 px-3 py-1 rounded-full text-xs text-emerald-300 font-semibold">
@@ -454,14 +448,14 @@ export default function App() {
       </div>
 
       <header className="w-full max-w-6xl mb-6">
+        {/* Título Principal con mayor tamaño */}
         <h1
           id="title-osrs"
-          className="text-xl sm:text-2xl text-center text-accent-400 mb-6 drop-shadow-[0_2px_2px_rgba(0,0,0,0.9)] tracking-wide"
+          className="text-2xl sm:text-4xl text-center text-accent-400 mb-6 drop-shadow-[0_2px_2px_rgba(0,0,0,0.9)] tracking-wide"
         >
           Bingo RCH 14-16 Agosto 2026
         </h1>
 
-        {/* Marcador: tambien funciona como selector de equipo */}
         <Scoreboard
           teams={teams}
           activeTeamId={activeTeamId}
@@ -471,10 +465,8 @@ export default function App() {
           }}
         />
 
-        {/* Nombre de Equipo e Integrantes */}
         <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 flex flex-col items-center gap-3">
           <div className="flex justify-center items-center gap-2">
-            <span className="text-slate-400 text-sm font-medium">Equipo:</span>
             {isEditingTitle && isCaptain ? (
               <input
                 type="text"
@@ -483,17 +475,18 @@ export default function App() {
                 onBlur={() => setIsEditingTitle(false)}
                 onKeyDown={(e) => e.key === "Enter" && setIsEditingTitle(false)}
                 autoFocus
-                className="bg-slate-950 text-accent-300 font-bold px-3 py-1 rounded border border-accent-500 outline-none"
+                className="bg-slate-950 text-accent-300 font-bold px-3 py-1 rounded border border-accent-500 outline-none font-osrs text-2xl sm:text-3xl text-center"
               />
             ) : (
               <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold text-accent-300">
+                {/* Nombre del equipo activo en tamaño destacado */}
+                <h2 className="font-osrs text-2xl sm:text-3xl text-accent-300 py-1">
                   {currentTeam.name || "Sin nombre"}
                 </h2>
                 {isCaptain && (
                   <button
                     onClick={() => setIsEditingTitle(true)}
-                    className="text-xs text-slate-400 hover:text-white underline"
+                    className="text-xs text-slate-400 hover:text-white underline ml-1"
                   >
                     Editar
                   </button>
@@ -530,9 +523,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* Grid 5x5 Ampliado + Panel Lateral */}
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Grilla 5x5 con mayor tamaño (h-36 / min-h-[130px]) */}
         <div className="lg:col-span-3 grid grid-cols-5 gap-3 bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-2xl">
           {currentTeam.tiles.map((tile) => {
             const required = tile.requiredCount || 1;
@@ -553,8 +544,6 @@ export default function App() {
                         : "border-slate-800 hover:border-slate-700"
                 }`}
               >
-                {/* Banda de arte del item. Las capturas NO se muestran aca:
-                    viven en el panel lateral para no ensuciar la grilla. */}
                 <div className="relative flex-1 min-h-0 w-full">
                   <img
                     src={tile.placeholder}
@@ -570,7 +559,6 @@ export default function App() {
                     <div className="absolute inset-0 bg-emerald-400/10 pointer-events-none" />
                   )}
 
-                  {/* Progreso de casillas que piden varias pruebas */}
                   {required > 1 && (
                     <span
                       className={`absolute top-1.5 left-1.5 z-30 text-[10px] px-1.5 py-0.5 rounded font-bold shadow pointer-events-none border ${
@@ -583,7 +571,6 @@ export default function App() {
                     </span>
                   )}
 
-                  {/* Indica que hay pruebas cargadas sin tener que mostrarlas */}
                   {uploaded > 0 && (
                     <span className="absolute top-1.5 right-1.5 z-30 text-[10px] bg-slate-950/90 border border-slate-600 text-slate-200 px-1.5 py-0.5 rounded font-bold shadow pointer-events-none">
                       📷 {uploaded}
@@ -608,7 +595,6 @@ export default function App() {
                   )}
                 </div>
 
-                {/* Titulo como pie fijo: la imagen ya no trae texto quemado */}
                 <span
                   className={`z-20 h-9 shrink-0 flex items-center justify-center px-1.5 text-[10px] sm:text-[11px] leading-tight text-center w-full border-t pointer-events-none ${
                     isCompleted
@@ -623,9 +609,10 @@ export default function App() {
           })}
         </div>
 
-        {/* Panel CRUD Lateral */}
+        {/* Panel Lateral */}
         <div className="bg-slate-800 p-5 rounded-xl border border-slate-700 h-fit">
-          <h3 className="text-lg font-bold text-accent-400 mb-4 pb-2 border-b border-slate-700">
+          {/* Título de "Detalle de Casilla" en tamaño mediano visible */}
+          <h3 className="font-osrs text-sm sm:text-base text-accent-400 mb-4 pb-2 border-b border-slate-700 tracking-normal whitespace-nowrap">
             Detalle de Casilla
           </h3>
 
@@ -652,7 +639,6 @@ export default function App() {
                 </p>
               </div>
 
-              {/* Galería de Capturas */}
               <div>
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-xs text-slate-400 uppercase tracking-wider block font-semibold">
@@ -704,7 +690,6 @@ export default function App() {
                 )}
               </div>
 
-              {/* Acciones de Capitán */}
               <div className="space-y-2 pt-2">
                 {isCaptain ? (
                   <label
@@ -747,7 +732,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* MODAL ZOOM DE IMAGEN AMPLIADA */}
       {zoomImage && (
         <div
           onClick={() => setZoomImage(null)}
@@ -782,11 +766,10 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL DE PIN DE CAPITÁN */}
       {showPinModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 max-w-sm w-full shadow-2xl">
-            <h3 className="text-lg font-bold text-accent-400 mb-2 text-center">
+            <h3 className="font-osrs text-xs text-accent-400 mb-2 text-center">
               Acceso de Capitán
             </h3>
             <p className="text-xs text-slate-300 mb-4 text-center">
@@ -801,7 +784,7 @@ export default function App() {
                 value={inputPin}
                 onChange={(e) => setInputPin(e.target.value)}
                 autoFocus
-                className="w-xl bg-slate-900 border border-slate-700 text-white text-center text-lg tracking-widest font-bold py-2 px-3 rounded outline-none focus:border-accent-500"
+                className="w-full bg-slate-900 border border-slate-700 text-white text-center text-lg tracking-widest font-bold py-2 px-3 rounded outline-none focus:border-accent-500"
               />
 
               {pinError && (

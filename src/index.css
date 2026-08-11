@@ -1,12 +1,33 @@
+@font-face {
+  font-family: "RuneScape UF";
+  src:
+    url("./assets/fonts/RuneScape-UF.woff2") format("woff2"),
+    url("./assets/fonts/RuneScape-UF.woff") format("woff");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Fuente estilo Retro / Pixel Art de OSRS */
+@layer utilities {
+  .font-osrs {
+    font-family: "RuneScape UF", sans-serif !important;
+    font-weight: normal !important;
+    text-transform: none !important;
+    -webkit-font-smoothing: none;
+    -moz-osx-font-smoothing: unset;
+    font-smooth: never;
+  }
+}
+
 #title-osrs {
-  font-family: "Press Start 2P", monospace !important;
-  font-weight: 400 !important;
-  line-height: 1.3;
+  font-family: "RuneScape UF", sans-serif !important;
+  font-weight: normal !important;
+  text-transform: none !important;
+  -webkit-font-smoothing: none;
 }
 
 :root {
