@@ -102,7 +102,9 @@ function Scoreboard({ teams, activeTeamId, onSelectTeam }) {
         <h2 className="text-sm font-bold text-slate-200 uppercase tracking-wider">
           ⚔️ Marcador
         </h2>
-        <span className="text-xs font-semibold text-slate-400">{leadLabel}</span>
+        <span className="text-xs font-semibold text-slate-400">
+          {leadLabel}
+        </span>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -452,7 +454,10 @@ export default function App() {
       </div>
 
       <header className="w-full max-w-6xl mb-6">
-        <h1 className="text-3xl font-bold text-center text-accent-400 mb-6 tracking-wide">
+        <h1
+          id="title-osrs"
+          className="text-xl sm:text-2xl text-center text-accent-400 mb-6 drop-shadow-[0_2px_2px_rgba(0,0,0,0.9)] tracking-wide"
+        >
           Bingo RCH 14-16 Agosto 2026
         </h1>
 

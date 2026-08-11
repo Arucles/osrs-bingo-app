@@ -9,6 +9,9 @@ export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
+      fontFamily: {
+        osrs: ["Runescape", "sans-serif"],
+      },
       colors: {
         accent: {
           200: accent(200),

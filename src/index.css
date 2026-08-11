@@ -2,8 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Acento por defecto (ambar). App.jsx lo sobreescribe segun el equipo activo,
-   asi que si se agrega un equipo nuevo solo hay que sumarlo a TEAM_THEMES. */
+/* Fuente estilo Retro / Pixel Art de OSRS */
+#title-osrs {
+  font-family: "Press Start 2P", monospace !important;
+  font-weight: 400 !important;
+  line-height: 1.3;
+}
+
 :root {
   --accent-200: 253 230 138;
   --accent-300: 252 211 77;
@@ -17,7 +22,6 @@ body {
   @apply bg-slate-900 text-slate-100 min-h-screen font-sans;
 }
 
-/* El cambio de equipo no deberia sentirse como un salto brusco de color */
 .accent-transition {
   transition:
     background-color 200ms ease,
