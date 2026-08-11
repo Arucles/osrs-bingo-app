@@ -2,6 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Acento por defecto (ambar). App.jsx lo sobreescribe segun el equipo activo,
+   asi que si se agrega un equipo nuevo solo hay que sumarlo a TEAM_THEMES. */
+:root {
+  --accent-200: 253 230 138;
+  --accent-300: 252 211 77;
+  --accent-400: 251 191 36;
+  --accent-500: 245 158 11;
+  --accent-600: 217 119 6;
+  --accent-950: 69 26 3;
+}
+
 body {
   @apply bg-slate-900 text-slate-100 min-h-screen font-sans;
+}
+
+/* El cambio de equipo no deberia sentirse como un salto brusco de color */
+.accent-transition {
+  transition:
+    background-color 200ms ease,
+    border-color 200ms ease,
+    color 200ms ease;
 }
