@@ -62,13 +62,231 @@ const TEAM_THEMES = {
   },
 };
 
-const isTileDone = (tile) => tile.images.length >= (tile.requiredCount || 1);
+// Normalizar lista de fotos (soporta array de objetos new {url, by, at, isEnh} o viejos strings)
+const normalizePhotos = (tile) => {
+  if (Array.isArray(tile.photos) && tile.photos.length > 0) {
+    return tile.photos;
+  }
+  if (Array.isArray(tile.images) && tile.images.length > 0) {
+    return tile.images.map((url) => ({
+      url,
+      by: "Sin asignar",
+      at: null,
+    }));
+  }
+  return [];
+};
 
-const getTeamProgress = (team) => ({
-  tilesDone: team.tiles.filter(isTileDone).length,
-  totalTiles: team.tiles.length,
-  photos: team.tiles.reduce((sum, t) => sum + t.images.length, 0),
-});
+const isTileDone = (tile) => {
+  const photos = normalizePhotos(tile);
+
+  // Excepción para "x1 Enh or x3 Armour"
+  if (tile.title?.toLowerCase().includes("enh")) {
+    const hasEnh = photos.some((p) => p.isEnh);
+    if (hasEnh) return true;
+  }
+
+  // Comportamiento normal por conteo
+  return photos.length >= (tile.requiredCount || 1);
+};
+
+const getTeamProgress = (team) => {
+  const tilesDone = team.tiles.filter(isTileDone).length;
+  const totalPhotos = team.tiles.reduce(
+    (sum, t) => sum + normalizePhotos(t).length,
+    0,
+  );
+  return {
+    tilesDone,
+    totalTiles: team.tiles.length,
+    photos: totalPhotos,
+  };
+};
+
+// Calcular el MVP o mejores jugadores de un equipo
+const getTeamMVP = (team) => {
+  const counts = {};
+
+  team.tiles.forEach((tile) => {
+    const photos = normalizePhotos(tile);
+    photos.forEach((photo) => {
+      const player = photo.by;
+      if (player && player !== "Sin asignar") {
+        counts[player] = (counts[player] || 0) + 1;
+      }
+    });
+  });
+
+  const entries = Object.entries(counts);
+  if (entries.length === 0) return null;
+
+  // Encontrar el puntaje máximo
+  const maxDrops = Math.max(...entries.map(([, qty]) => qty));
+  const topPlayers = entries
+    .filter(([, qty]) => qty === maxDrops)
+    .map(([name]) => name);
+
+  return {
+    players: topPlayers,
+    drops: maxDrops,
+  };
+};
+
+// Fecha de inicio: Viernes 14 de Agosto de 2026 a las 19:00 hrs
+const START_DATE = new Date("2026-08-14T19:00:00-04:00").getTime();
+// Fecha de término: Domingo 16 de Agosto de 2026 a las 19:00 hrs (48 hrs después)
+const END_DATE = START_DATE + 48 * 60 * 60 * 1000;
+
+function CountdownTimer() {
+  const [timeLeft, setTimeLeft] = useState({
+    phase: "before", // "before", "active", "ended"
+    days: 0,
+    hours: 0,
+    minutes: 0,
+    seconds: 0,
+  });
+
+  useEffect(() => {
+    const updateCounter = () => {
+      const now = new Date().getTime();
+
+      if (now < START_DATE) {
+        // Fase 1: Antes del inicio
+        const diff = START_DATE - now;
+        setTimeLeft({
+          phase: "before",
+          days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+          hours: Math.floor((diff / (1000 * 60 * 60)) % 24),
+          minutes: Math.floor((diff / 1000 / 60) % 60),
+          seconds: Math.floor((diff / 1000) % 60),
+        });
+      } else if (now >= START_DATE && now < END_DATE) {
+        // Fase 2: Evento activo (48 hrs)
+        const diff = END_DATE - now;
+        setTimeLeft({
+          phase: "active",
+          days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+          hours: Math.floor((diff / (1000 * 60 * 60)) % 24),
+          minutes: Math.floor((diff / 1000 / 60) % 60),
+          seconds: Math.floor((diff / 1000) % 60),
+        });
+      } else {
+        // Fase 3: Finalizado
+        setTimeLeft({
+          phase: "ended",
+          days: 0,
+          hours: 0,
+          minutes: 0,
+          seconds: 0,
+        });
+      }
+    };
+
+    updateCounter();
+    const interval = setInterval(updateCounter, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (timeLeft.phase === "ended") {
+    return (
+      <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-3 text-center mb-6 max-w-lg mx-auto shadow">
+        <span className="font-osrs text-base text-rose-400">
+          🏁 EL BINGO HA FINALIZADO 🏁
+        </span>
+      </div>
+    );
+  }
+
+  const isBefore = timeLeft.phase === "before";
+
+  return (
+    <div
+      className={`max-w-md mx-auto rounded-xl border p-3 mb-6 text-center shadow-lg transition-all ${
+        isBefore
+          ? "bg-slate-800/90 border-amber-500/40"
+          : "bg-emerald-950/50 border-emerald-500/50"
+      }`}
+    >
+      <div className="flex items-center justify-center gap-2 mb-1.5">
+        <span className="text-sm">{isBefore ? "⏳" : "🔥"}</span>
+        <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+          {isBefore
+            ? "El Bingo inicia en:"
+            : "Tiempo restante de evento (48h):"}
+        </span>
+      </div>
+
+      <div className="flex items-center justify-center gap-2 sm:gap-3 font-mono">
+        {timeLeft.days > 0 && (
+          <div className="flex flex-col items-center">
+            <span className="bg-slate-950 px-2.5 py-1 rounded-md text-amber-300 font-bold text-base sm:text-lg border border-slate-800">
+              {String(timeLeft.days).padStart(2, "0")}
+            </span>
+            <span className="text-[9px] text-slate-400 uppercase mt-0.5">
+              Días
+            </span>
+          </div>
+        )}
+
+        <div className="flex flex-col items-center">
+          <span className="bg-slate-950 px-2.5 py-1 rounded-md text-amber-300 font-bold text-base sm:text-lg border border-slate-800">
+            {String(timeLeft.hours).padStart(2, "0")}
+          </span>
+          <span className="text-[9px] text-slate-400 uppercase mt-0.5">
+            Horas
+          </span>
+        </div>
+
+        <span className="text-amber-400 font-bold text-lg mb-3">:</span>
+
+        <div className="flex flex-col items-center">
+          <span className="bg-slate-950 px-2.5 py-1 rounded-md text-amber-300 font-bold text-base sm:text-lg border border-slate-800">
+            {String(timeLeft.minutes).padStart(2, "0")}
+          </span>
+          <span className="text-[9px] text-slate-400 uppercase mt-0.5">
+            Min
+          </span>
+        </div>
+
+        <span className="text-amber-400 font-bold text-lg mb-3">:</span>
+
+        <div className="flex flex-col items-center">
+          <span className="bg-slate-950 px-2.5 py-1 rounded-md text-amber-300 font-bold text-base sm:text-lg border border-slate-800">
+            {String(timeLeft.seconds).padStart(2, "0")}
+          </span>
+          <span className="text-[9px] text-slate-400 uppercase mt-0.5">
+            Seg
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MVPBadge({ team }) {
+  const mvp = getTeamMVP(team);
+
+  if (!mvp) return null;
+
+  return (
+    <div className="max-w-sm sm:max-w-md w-full mx-auto bg-gradient-to-r from-amber-500/10 via-amber-500/20 to-amber-500/10 border border-amber-500/40 rounded-xl px-4 py-2.5 flex items-center justify-between shadow-lg mt-3">
+      <div className="flex items-center gap-3 min-w-0">
+        <span className="text-2xl shrink-0 animate-bounce">👑</span>
+        <div className="min-w-0">
+          <span className="text-[11px] text-amber-400 font-bold uppercase tracking-wider block leading-tight">
+            MVP del Equipo
+          </span>
+          <span className="font-osrs text-base sm:text-lg text-amber-200 truncate block py-0.5">
+            {mvp.players.join(" & ")}
+          </span>
+        </div>
+      </div>
+      <div className="bg-amber-500 text-slate-950 font-bold px-3 py-1 rounded-lg text-xs sm:text-sm font-mono shadow shrink-0 ml-3">
+        {mvp.drops} {mvp.drops === 1 ? "drop" : "drops"}
+      </div>
+    </div>
+  );
+}
 
 function Scoreboard({ teams, activeTeamId, onSelectTeam }) {
   const stats = teams.map((team) => ({
@@ -94,7 +312,6 @@ function Scoreboard({ teams, activeTeamId, onSelectTeam }) {
   return (
     <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 mb-4">
       <div className="relative flex items-center justify-center mb-4 min-h-[24px]">
-        {/* Tamaño aumentado para "MARCADOR" */}
         <h2 className="font-osrs text-base sm:text-lg text-slate-200 uppercase tracking-wider text-center">
           ⚔️ MARCADOR
         </h2>
@@ -125,9 +342,8 @@ function Scoreboard({ teams, activeTeamId, onSelectTeam }) {
             >
               <div className="flex items-center justify-between gap-2 mb-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-accent-400" />
-                  {/* Modificar aquí el tamaño */}
-                  <span className="font-osrs text-xl sm:text-2xl text-accent-300 py-0.5">
+                  <span className="w-3 h-3 rounded-full shrink-0 bg-accent-400" />
+                  <span className="font-osrs text-lg sm:text-xl text-accent-300 py-0.5">
                     {team.name || "Sin nombre"}
                   </span>
                 </div>
@@ -172,17 +388,18 @@ export default function App() {
     {
       id: "team1",
       name: "Team Suertudont",
-      tiles: initialTiles.map((t) => ({ ...t, images: [] })),
+      tiles: initialTiles.map((t) => ({ ...t, photos: [], images: [] })),
     },
     {
       id: "team2",
       name: "Team Rhaegnar",
-      tiles: initialTiles.map((t) => ({ ...t, images: [] })),
+      tiles: initialTiles.map((t) => ({ ...t, photos: [], images: [] })),
     },
   ]);
 
   const [activeTeamId, setActiveTeamId] = useState("team1");
   const [selectedTileId, setSelectedTileId] = useState(null);
+  const [selectedMember, setSelectedMember] = useState("");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -194,6 +411,7 @@ export default function App() {
   const [showPinModal, setShowPinModal] = useState(false);
   const [inputPin, setInputPin] = useState("");
   const [pinError, setPinError] = useState(false);
+  const [isEnhDrop, setIsEnhDrop] = useState(false);
 
   useEffect(() => {
     fetchInitialData();
@@ -204,14 +422,25 @@ export default function App() {
         "postgres_changes",
         { event: "*", schema: "public", table: "team_tiles" },
         (payload) => {
-          const { team_id, tile_id, image_urls, image_url } =
-            payload.new || payload.old;
-          const urls =
-            image_urls && image_urls.length > 0
-              ? image_urls
-              : image_url
-                ? [image_url]
-                : [];
+          const row = payload.new || payload.old;
+          if (!row) return;
+
+          const { team_id, tile_id, photos, image_urls, image_url } = row;
+
+          let normalized = photos || [];
+          if (!normalized.length && image_urls?.length) {
+            normalized = image_urls.map((url) => ({
+              url,
+              by: "Sin asignar",
+              at: null,
+            }));
+          } else if (!normalized.length && image_url) {
+            normalized = [{ url: image_url, by: "Sin asignar", at: null }];
+          }
+
+          const urls = normalized.map((p) =>
+            typeof p === "string" ? p : p.url,
+          );
 
           setTeams((prev) =>
             prev.map((t) => {
@@ -219,7 +448,9 @@ export default function App() {
               return {
                 ...t,
                 tiles: t.tiles.map((tile) =>
-                  tile.id === tile_id ? { ...tile, images: urls } : tile,
+                  tile.id === tile_id
+                    ? { ...tile, photos: normalized, images: urls }
+                    : tile,
                 ),
               };
             }),
@@ -256,17 +487,37 @@ export default function App() {
             const foundTile = dbTiles?.find(
               (t) => t.team_id === team.id && t.tile_id === tile.id,
             );
+            let photoObjs = [];
             let urls = [];
+
             if (foundTile) {
-              urls =
-                foundTile.image_urls && foundTile.image_urls.length > 0
-                  ? foundTile.image_urls
-                  : foundTile.image_url
-                    ? [foundTile.image_url]
-                    : [];
+              if (
+                Array.isArray(foundTile.photos) &&
+                foundTile.photos.length > 0
+              ) {
+                photoObjs = foundTile.photos;
+                urls = photoObjs.map((p) => p.url);
+              } else if (
+                Array.isArray(foundTile.image_urls) &&
+                foundTile.image_urls.length > 0
+              ) {
+                urls = foundTile.image_urls;
+                photoObjs = urls.map((url) => ({
+                  url,
+                  by: "Sin asignar",
+                  at: null,
+                }));
+              } else if (foundTile.image_url) {
+                urls = [foundTile.image_url];
+                photoObjs = [
+                  { url: foundTile.image_url, by: "Sin asignar", at: null },
+                ];
+              }
             }
+
             return {
               ...tile,
+              photos: photoObjs,
               images: urls,
             };
           });
@@ -309,6 +560,24 @@ export default function App() {
     const file = e.target.files[0];
     if (!file || !selectedTileId) return;
 
+    const selectedTile = currentTeam.tiles.find((t) => t.id === selectedTileId);
+    const currentPhotos = normalizePhotos(selectedTile);
+    const maxRequired = selectedTile.requiredCount || 1;
+
+    // Validación de cantidad máxima alcanzada o si ya tiene Enh
+    if (
+      currentPhotos.length >= maxRequired ||
+      currentPhotos.some((p) => p.isEnh)
+    ) {
+      alert("Esta casilla ya se encuentra completada.");
+      return;
+    }
+
+    if (!selectedMember) {
+      alert("Por favor selecciona qué integrante consiguió el drop.");
+      return;
+    }
+
     try {
       setUploading(true);
       const fileExt = file.name.split(".").pop();
@@ -325,18 +594,25 @@ export default function App() {
         .getPublicUrl(fileName);
 
       const imageUrl = publicUrlData.publicUrl;
-      const selectedTile = currentTeam.tiles.find(
-        (t) => t.id === selectedTileId,
-      );
-      const updatedImages = [...(selectedTile.images || []), imageUrl];
+
+      const newPhotoObj = {
+        url: imageUrl,
+        by: selectedMember,
+        at: new Date().toISOString(),
+        isEnh: isEnhDrop, // Registra si fue Enh
+      };
+
+      const updatedPhotos = [...currentPhotos, newPhotoObj];
+      const updatedUrls = updatedPhotos.map((p) => p.url);
 
       const { error: dbError } = await supabase.from("team_tiles").upsert(
         {
           team_id: activeTeamId,
           tile_id: selectedTileId,
           title: selectedTile.title,
-          image_urls: updatedImages,
-          image_url: updatedImages[0] || null,
+          photos: updatedPhotos,
+          image_urls: updatedUrls,
+          image_url: updatedUrls[0] || null,
         },
         { onConflict: "team_id,tile_id" },
       );
@@ -350,12 +626,16 @@ export default function App() {
             ...t,
             tiles: t.tiles.map((tile) =>
               tile.id === selectedTileId
-                ? { ...tile, images: updatedImages }
+                ? { ...tile, photos: updatedPhotos, images: updatedUrls }
                 : tile,
             ),
           };
         }),
       );
+
+      // Limpiar campos tras subida exitosa
+      setSelectedMember("");
+      setIsEnhDrop(false);
     } catch (error) {
       alert("Error al subir imagen: " + error.message);
     } finally {
@@ -371,17 +651,20 @@ export default function App() {
       const selectedTile = currentTeam.tiles.find(
         (t) => t.id === selectedTileId,
       );
-      const updatedImages = selectedTile.images.filter(
+      const currentPhotos = normalizePhotos(selectedTile);
+      const updatedPhotos = currentPhotos.filter(
         (_, idx) => idx !== indexToRemove,
       );
+      const updatedUrls = updatedPhotos.map((p) => p.url);
 
       const { error } = await supabase.from("team_tiles").upsert(
         {
           team_id: activeTeamId,
           tile_id: selectedTileId,
           title: selectedTile.title,
-          image_urls: updatedImages,
-          image_url: updatedImages[0] || null,
+          photos: updatedPhotos,
+          image_urls: updatedUrls,
+          image_url: updatedUrls[0] || null,
         },
         { onConflict: "team_id,tile_id" },
       );
@@ -395,7 +678,7 @@ export default function App() {
             ...t,
             tiles: t.tiles.map((tile) =>
               tile.id === selectedTileId
-                ? { ...tile, images: updatedImages }
+                ? { ...tile, photos: updatedPhotos, images: updatedUrls }
                 : tile,
             ),
           };
@@ -408,10 +691,39 @@ export default function App() {
     }
   };
 
+  const formatDate = (isoString) => {
+    if (!isoString) return "";
+    try {
+      const d = new Date(isoString);
+      const day = d.getDate();
+      const monthNames = [
+        "ene",
+        "feb",
+        "mar",
+        "abr",
+        "may",
+        "jun",
+        "jul",
+        "ago",
+        "sep",
+        "oct",
+        "nov",
+        "dic",
+      ];
+      const month = monthNames[d.getMonth()];
+      const hours = String(d.getHours()).padStart(2, "0");
+      const minutes = String(d.getMinutes()).padStart(2, "0");
+      return `${day} ${month}, ${hours}:${minutes}`;
+    } catch {
+      return "";
+    }
+  };
+
   const currentTeam = teams.find((t) => t.id === activeTeamId);
   const selectedTile = currentTeam?.tiles.find((t) => t.id === selectedTileId);
   const currentMembers = TEAM_MEMBERS[activeTeamId] || [];
   const activeTheme = TEAM_THEMES[activeTeamId] || TEAM_THEMES.team1;
+  const tilePhotos = selectedTile ? normalizePhotos(selectedTile) : [];
 
   if (loading) {
     return (
@@ -448,7 +760,6 @@ export default function App() {
       </div>
 
       <header className="w-full max-w-6xl mb-6">
-        {/* Título Principal con mayor tamaño */}
         <h1
           id="title-osrs"
           className="text-2xl sm:text-4xl text-center text-accent-400 mb-6 drop-shadow-[0_2px_2px_rgba(0,0,0,0.9)] tracking-wide"
@@ -456,12 +767,16 @@ export default function App() {
           Bingo RCH 14-16 Agosto 2026
         </h1>
 
+        <CountdownTimer />
+
         <Scoreboard
           teams={teams}
           activeTeamId={activeTeamId}
           onSelectTeam={(id) => {
             setActiveTeamId(id);
             setSelectedTileId(null);
+            setSelectedMember("");
+            setIsEnhDrop(false);
           }}
         />
 
@@ -479,7 +794,6 @@ export default function App() {
               />
             ) : (
               <div className="flex items-center gap-2">
-                {/* Nombre del equipo activo en tamaño destacado */}
                 <h2 className="font-osrs text-2xl sm:text-3xl text-accent-300 py-1">
                   {currentTeam.name || "Sin nombre"}
                 </h2>
@@ -502,6 +816,7 @@ export default function App() {
             <span>👥 Integrantes ({currentMembers.length})</span>
             <span className="text-[10px]">{showMembers ? "▲" : "▼"}</span>
           </button>
+          <MVPBadge team={currentTeam} />
 
           {showMembers && (
             <div className="w-full max-w-xl bg-slate-950/90 p-4 rounded-lg border border-slate-700 mt-2">
@@ -524,16 +839,24 @@ export default function App() {
       </header>
 
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Grilla 5x5 de Casillas */}
         <div className="lg:col-span-3 grid grid-cols-5 gap-3 bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-2xl">
           {currentTeam.tiles.map((tile) => {
             const required = tile.requiredCount || 1;
-            const uploaded = tile.images.length;
-            const isCompleted = uploaded >= required;
+            const photos = normalizePhotos(tile);
+            const uploaded = photos.length;
+
+            // CORRECCIÓN CLAVE: Evaluar completado usando isTileDone(tile)
+            const isCompleted = isTileDone(tile);
 
             return (
               <button
                 key={tile.id}
-                onClick={() => setSelectedTileId(tile.id)}
+                onClick={() => {
+                  setSelectedTileId(tile.id);
+                  setSelectedMember("");
+                  setIsEnhDrop(false);
+                }}
                 className={`group h-32 sm:h-36 rounded-lg border transition-all relative overflow-hidden flex flex-col bg-slate-950 ${
                   selectedTileId === tile.id
                     ? "border-accent-400 ring-2 ring-accent-400/50 scale-[1.02] z-20"
@@ -609,9 +932,8 @@ export default function App() {
           })}
         </div>
 
-        {/* Panel Lateral */}
+        {/* Panel Lateral de Detalle */}
         <div className="bg-slate-800 p-5 rounded-xl border border-slate-700 h-fit">
-          {/* Título de "Detalle de Casilla" en tamaño mediano visible */}
           <h3 className="font-osrs text-sm sm:text-base text-accent-400 mb-4 pb-2 border-b border-slate-700 tracking-normal whitespace-nowrap">
             Detalle de Casilla
           </h3>
@@ -640,48 +962,76 @@ export default function App() {
               </div>
 
               <div>
-                <div className="flex justify-between items-center mb-1">
+                <div className="flex justify-between items-center mb-2">
                   <span className="text-xs text-slate-400 uppercase tracking-wider block font-semibold">
-                    Pruebas ({selectedTile.images.length}/
-                    {selectedTile.requiredCount}):
+                    Pruebas ({tilePhotos.length}/
+                    {selectedTile.requiredCount || 1}):
                   </span>
-                  {selectedTile.images.length >= selectedTile.requiredCount && (
+                  {isTileDone(selectedTile) && (
                     <span className="text-[10px] text-emerald-400 font-bold uppercase">
                       ✓ Meta alcanzada
                     </span>
                   )}
                 </div>
 
-                {selectedTile.images.length > 0 ? (
-                  <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
-                    {selectedTile.images.map((imgUrl, idx) => (
-                      <div
-                        key={idx}
-                        className="relative rounded overflow-hidden border border-slate-700 group"
-                      >
-                        <img
-                          src={imgUrl}
-                          alt={`Prueba ${idx + 1}`}
-                          onClick={() => setZoomImage(imgUrl)}
-                          className="w-full h-28 object-cover cursor-zoom-in hover:opacity-90 transition-opacity"
-                          title="Haz clic para agrandar imagen"
-                        />
-                        <span className="absolute top-1 left-1 bg-slate-950/80 text-accent-300 text-[10px] px-1.5 py-0.5 rounded border border-slate-700 font-bold pointer-events-none">
-                          Foto #{idx + 1} (Clic para agrandar)
-                        </span>
+                {tilePhotos.length > 0 ? (
+                  <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+                    {tilePhotos.map((photo, idx) => {
+                      const imgUrl =
+                        typeof photo === "string" ? photo : photo.url;
+                      const author = photo.by || "Sin asignar";
+                      const timestamp = formatDate(photo.at);
 
-                        {isCaptain && (
-                          <button
-                            onClick={() => handleRemoveImageIndex(idx)}
-                            disabled={uploading}
-                            className="absolute top-1 right-1 bg-rose-600/90 hover:bg-rose-600 text-white p-1 rounded transition-colors text-xs"
-                            title="Eliminar esta foto"
-                          >
-                            ✕
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                      return (
+                        <div
+                          key={idx}
+                          className="relative rounded-lg overflow-hidden border border-slate-700 group bg-slate-950 shadow-md"
+                        >
+                          <img
+                            src={imgUrl}
+                            alt={`Prueba ${idx + 1}`}
+                            onClick={() => setZoomImage(imgUrl)}
+                            className="w-full h-32 object-cover cursor-zoom-in hover:opacity-90 transition-opacity"
+                            title="Haz clic para agrandar imagen"
+                          />
+
+                          {/* Badge de Foto #X arriba a la izquierda */}
+                          <span className="absolute top-1.5 left-1.5 bg-slate-950/90 text-accent-300 text-[10px] px-2 py-0.5 rounded border border-slate-700 font-bold shadow pointer-events-none flex items-center gap-1">
+                            <span>Foto #{idx + 1}</span>
+                            {photo.isEnh && (
+                              <span className="text-amber-400 font-extrabold">
+                                ✨ ENH
+                              </span>
+                            )}
+                          </span>
+
+                          {/* Botón de eliminar para capitanes */}
+                          {isCaptain && (
+                            <button
+                              onClick={() => handleRemoveImageIndex(idx)}
+                              disabled={uploading}
+                              className="absolute top-1.5 right-1.5 bg-rose-600/90 hover:bg-rose-600 text-white w-6 h-6 rounded flex items-center justify-center transition-colors text-xs font-bold shadow"
+                              title="Eliminar esta foto"
+                            >
+                              ✕
+                            </button>
+                          )}
+
+                          {/* Barra inferior con Jugador y Fecha */}
+                          <div className="absolute bottom-0 inset-x-0 bg-slate-950/85 backdrop-blur-xs px-2.5 py-1.5 border-t border-slate-800 flex justify-between items-center text-[11px] pointer-events-none">
+                            <span className="font-bold text-accent-300 flex items-center gap-1 truncate max-w-[60%]">
+                              <span>👤</span>
+                              <span className="truncate">{author}</span>
+                            </span>
+                            {timestamp && (
+                              <span className="text-slate-400 text-[10px] font-mono shrink-0">
+                                {timestamp}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="h-28 bg-slate-900 rounded border border-dashed border-slate-700 flex items-center justify-center text-slate-500 text-xs text-center p-4">
@@ -690,24 +1040,73 @@ export default function App() {
                 )}
               </div>
 
-              <div className="space-y-2 pt-2">
+              {/* Selector de Integrante y Carga de Foto */}
+              <div className="space-y-3 pt-2 border-t border-slate-700/60">
                 {isCaptain ? (
-                  <label
-                    className={`w-full bg-accent-500 hover:bg-accent-600 text-slate-950 font-bold py-2 px-4 rounded text-center block cursor-pointer transition-colors text-sm shadow ${uploading ? "opacity-50 pointer-events-none" : ""}`}
-                  >
-                    {uploading
-                      ? "Procesando..."
-                      : selectedTile.images.length > 0
-                        ? "Añadir Otra Foto"
-                        : "Subir Screenshot"}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      disabled={uploading}
-                      className="hidden"
-                    />
-                  </label>
+                  <>
+                    {!isTileDone(selectedTile) ? (
+                      <>
+                        <div>
+                          <label className="text-xs text-slate-300 uppercase tracking-wider block font-semibold mb-1">
+                            ¿Quién consiguió el drop?
+                          </label>
+                          <select
+                            value={selectedMember}
+                            onChange={(e) => setSelectedMember(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-2 outline-none focus:border-accent-500 transition-colors cursor-pointer"
+                          >
+                            <option value="">
+                              Selecciona un integrante...
+                            </option>
+                            {currentMembers.map((member, idx) => (
+                              <option key={idx} value={member}>
+                                {member}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Checkbox para Enh */}
+                        {selectedTile.title?.toLowerCase().includes("enh") && (
+                          <label className="flex items-center gap-2 bg-slate-900 p-2 rounded border border-slate-700 cursor-pointer text-xs text-amber-300 font-semibold my-2">
+                            <input
+                              type="checkbox"
+                              checked={isEnhDrop}
+                              onChange={(e) => setIsEnhDrop(e.target.checked)}
+                              className="accent-amber-500 rounded"
+                            />
+                            <span>✨ ¡Fue un Enhanced Weapon Seed (Enh)!</span>
+                          </label>
+                        )}
+
+                        <label
+                          className={`w-full font-bold py-2.5 px-4 rounded-lg text-center block transition-colors text-sm shadow ${
+                            !selectedMember || uploading
+                              ? "bg-slate-700 text-slate-400 cursor-not-allowed opacity-60"
+                              : "bg-accent-500 hover:bg-accent-600 text-slate-950 cursor-pointer"
+                          }`}
+                        >
+                          {uploading ? "Procesando..." : "Subir Screenshot"}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                            disabled={!selectedMember || uploading}
+                            className="hidden"
+                          />
+                        </label>
+                      </>
+                    ) : (
+                      <div className="bg-emerald-950/40 border border-emerald-500/30 p-3 rounded-lg text-center space-y-1">
+                        <p className="text-xs text-emerald-400 font-bold uppercase tracking-wide">
+                          ✓ Meta alcanzada
+                        </p>
+                        <p className="text-[11px] text-slate-400">
+                          No se permiten más capturas para esta casilla.
+                        </p>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <div className="bg-slate-900/80 p-3 rounded border border-slate-700 text-center">
                     <p className="text-xs text-slate-400 mb-2">
