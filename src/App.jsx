@@ -420,7 +420,11 @@ export default function App() {
 
   const [zoomImage, setZoomImage] = useState(null);
 
-  const [captainTeamId, setCaptainTeamId] = useState(null);
+  // Cargar capitán persistente desde localStorage
+  const [captainTeamId, setCaptainTeamId] = useState(() => {
+    return localStorage.getItem("bingo_captain_team") || null;
+  });
+
   const [showPinModal, setShowPinModal] = useState(false);
   const [inputPin, setInputPin] = useState("");
   const [pinError, setPinError] = useState(false);
@@ -594,12 +598,18 @@ export default function App() {
 
     if (inputPin === expectedPin) {
       setCaptainTeamId(activeTeamId);
+      localStorage.setItem("bingo_captain_team", activeTeamId);
       setShowPinModal(false);
       setInputPin("");
       setPinError(false);
     } else {
       setPinError(true);
     }
+  };
+
+  const handleCaptainLogout = () => {
+    setCaptainTeamId(null);
+    localStorage.removeItem("bingo_captain_team");
   };
 
   const handleTeamNameChange = async (e) => {
@@ -789,7 +799,7 @@ export default function App() {
           <div className="flex items-center gap-2 bg-emerald-900/60 border border-emerald-500/50 px-3 py-1 rounded-full text-xs text-emerald-300 font-semibold">
             <span>🛡️ Modo Capitán ({currentTeam.name})</span>
             <button
-              onClick={() => setCaptainTeamId(null)}
+              onClick={handleCaptainLogout}
               className="text-slate-400 hover:text-white underline ml-2"
             >
               Salir
