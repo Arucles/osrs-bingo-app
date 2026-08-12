@@ -21,7 +21,6 @@ const TEAM_MEMBERS = {
     "Narizon",
     "Neldo",
     "Karlos",
-    "Sofia Sykes",
     "Conejo",
     "Tio Zombie",
   ],
