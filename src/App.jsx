@@ -187,7 +187,6 @@ function CountdownTimer({ teams }) {
   }, []);
 
   if (timeLeft.phase === "ended") {
-    // Definir ganador al finalizar
     const team1Prog = getTeamProgress(teams[0]);
     const team2Prog = getTeamProgress(teams[1]);
 
@@ -422,12 +421,18 @@ export default function App() {
 
   const [zoomImage, setZoomImage] = useState(null);
 
-  // Registro de modo capitán con ID de equipo desbloqueado
   const [captainTeamId, setCaptainTeamId] = useState(null);
   const [showPinModal, setShowPinModal] = useState(false);
   const [inputPin, setInputPin] = useState("");
   const [pinError, setPinError] = useState(false);
   const [isEnhDrop, setIsEnhDrop] = useState(false);
+
+  const isCaptainActiveForCurrentTeam = captainTeamId === activeTeamId;
+  const currentTeam = teams.find((t) => t.id === activeTeamId);
+  const selectedTile = currentTeam?.tiles.find((t) => t.id === selectedTileId);
+  const currentMembers = TEAM_MEMBERS[activeTeamId] || [];
+  const activeTheme = TEAM_THEMES[activeTeamId] || TEAM_THEMES.team1;
+  const tilePhotos = selectedTile ? normalizePhotos(selectedTile) : [];
 
   useEffect(() => {
     fetchInitialData();
@@ -487,6 +492,38 @@ export default function App() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  // Listener global para Ctrl + V (Paste)
+  useEffect(() => {
+    const handlePaste = (e) => {
+      if (!isCaptainActiveForCurrentTeam || !selectedTileId || uploading)
+        return;
+
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf("image") !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            e.preventDefault();
+            handleImageUpload(null, file);
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, [
+    selectedTileId,
+    selectedMember,
+    isEnhDrop,
+    isCaptainActiveForCurrentTeam,
+    uploading,
+    activeTeamId,
+  ]);
 
   const fetchInitialData = async () => {
     try {
@@ -574,8 +611,8 @@ export default function App() {
     await supabase.from("teams").upsert({ id: activeTeamId, name: newName });
   };
 
-  const handleImageUpload = async (e) => {
-    const file = e.target.files[0];
+  const handleImageUpload = async (e, pastedFile = null) => {
+    const file = pastedFile || e?.target?.files?.[0];
     if (!file || !selectedTileId) return;
 
     const selectedTile = currentTeam.tiles.find((t) => t.id === selectedTileId);
@@ -597,7 +634,7 @@ export default function App() {
 
     try {
       setUploading(true);
-      const fileExt = file.name.split(".").pop();
+      const fileExt = file.type.split("/")[1] || "png";
       const fileName = `${activeTeamId}_tile_${selectedTileId}_${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
@@ -735,15 +772,6 @@ export default function App() {
     }
   };
 
-  const currentTeam = teams.find((t) => t.id === activeTeamId);
-  const selectedTile = currentTeam?.tiles.find((t) => t.id === selectedTileId);
-  const currentMembers = TEAM_MEMBERS[activeTeamId] || [];
-  const activeTheme = TEAM_THEMES[activeTeamId] || TEAM_THEMES.team1;
-  const tilePhotos = selectedTile ? normalizePhotos(selectedTile) : [];
-
-  // Comprobar si el capitán activo tiene permiso en EL EQUIPO ACTUALMENTE SELECCIONADO
-  const isCaptainActiveForCurrentTeam = captainTeamId === activeTeamId;
-
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-900 text-accent-400 flex items-center justify-center font-bold">
@@ -790,7 +818,6 @@ export default function App() {
           Bingo RCH 14-16 Agosto 2026
         </h1>
 
-        {/* CONTADOR REGRESIVO Y DEFINICIÓN DE GANADOR */}
         <CountdownTimer teams={teams} />
 
         <Scoreboard
@@ -859,13 +886,11 @@ export default function App() {
             </div>
           )}
 
-          {/* TARJETA DEL MVP */}
           <MVPBadge team={currentTeam} />
         </div>
       </header>
 
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Grilla 5x5 de Casillas */}
         <div className="lg:col-span-3 grid grid-cols-5 gap-3 bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-2xl">
           {currentTeam.tiles.map((tile) => {
             const required = tile.requiredCount || 1;
@@ -1099,6 +1124,30 @@ export default function App() {
                           </label>
                         )}
 
+                        {/* Zona de Pegar (Ctrl+V) / Drag & Drop */}
+                        <div
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            const file = e.dataTransfer.files[0];
+                            if (file && file.type.startsWith("image/")) {
+                              handleImageUpload(null, file);
+                            }
+                          }}
+                          className="border-2 border-dashed border-slate-700 hover:border-accent-500/80 bg-slate-900/60 p-3 rounded-lg text-center transition-colors my-2"
+                        >
+                          <p className="text-xs text-slate-300 font-semibold mb-1">
+                            📋 ¡Pega la foto con{" "}
+                            <kbd className="bg-slate-800 px-1.5 py-0.5 rounded text-amber-400 font-mono text-[10px]">
+                              Ctrl + V
+                            </kbd>
+                            !
+                          </p>
+                          <p className="text-[10px] text-slate-400">
+                            O arrástrala aquí / haz clic abajo para buscarla
+                          </p>
+                        </div>
+
                         <label
                           className={`w-full font-bold py-2.5 px-4 rounded-lg text-center block transition-colors text-sm shadow ${
                             !selectedMember || uploading
@@ -1106,7 +1155,7 @@ export default function App() {
                               : "bg-accent-500 hover:bg-accent-600 text-slate-950 cursor-pointer"
                           }`}
                         >
-                          {uploading ? "Procesando..." : "Subir Screenshot"}
+                          {uploading ? "Procesando..." : "Buscar Archivo..."}
                           <input
                             type="file"
                             accept="image/*"
