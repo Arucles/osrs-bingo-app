@@ -2,8 +2,13 @@ import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
 import { initialTiles } from "./data/bingoItems";
 
-const CAPTAIN_PIN = import.meta.env.VITE_CAPTAIN_PIN || "1234";
+// PINs independientes por equipo
+const CAPTAIN_PINS = {
+  team1: import.meta.env.VITE_CAPTAIN_PIN_TEAM1 || "9503",
+  team2: import.meta.env.VITE_CAPTAIN_PIN_TEAM2 || "8240",
+};
 
+// Integrantes de cada equipo
 const TEAM_MEMBERS = {
   team1: [
     "Suertudont",
@@ -62,7 +67,11 @@ const TEAM_THEMES = {
   },
 };
 
-// Normalizar lista de fotos (soporta array de objetos new {url, by, at, isEnh} o viejos strings)
+// Fechas del evento
+const START_DATE = new Date("2026-08-14T19:00:00-04:00").getTime();
+const END_DATE = START_DATE + 48 * 60 * 60 * 1000;
+
+// Normalizar lista de fotos
 const normalizePhotos = (tile) => {
   if (Array.isArray(tile.photos) && tile.photos.length > 0) {
     return tile.photos;
@@ -103,7 +112,6 @@ const getTeamProgress = (team) => {
   };
 };
 
-// Calcular el MVP o mejores jugadores de un equipo
 const getTeamMVP = (team) => {
   const counts = {};
 
@@ -120,7 +128,6 @@ const getTeamMVP = (team) => {
   const entries = Object.entries(counts);
   if (entries.length === 0) return null;
 
-  // Encontrar el puntaje máximo
   const maxDrops = Math.max(...entries.map(([, qty]) => qty));
   const topPlayers = entries
     .filter(([, qty]) => qty === maxDrops)
@@ -132,14 +139,9 @@ const getTeamMVP = (team) => {
   };
 };
 
-// Fecha de inicio: Viernes 14 de Agosto de 2026 a las 19:00 hrs
-const START_DATE = new Date("2026-08-14T19:00:00-04:00").getTime();
-// Fecha de término: Domingo 16 de Agosto de 2026 a las 19:00 hrs (48 hrs después)
-const END_DATE = START_DATE + 48 * 60 * 60 * 1000;
-
-function CountdownTimer() {
+function CountdownTimer({ teams }) {
   const [timeLeft, setTimeLeft] = useState({
-    phase: "before", // "before", "active", "ended"
+    phase: "before",
     days: 0,
     hours: 0,
     minutes: 0,
@@ -151,7 +153,6 @@ function CountdownTimer() {
       const now = new Date().getTime();
 
       if (now < START_DATE) {
-        // Fase 1: Antes del inicio
         const diff = START_DATE - now;
         setTimeLeft({
           phase: "before",
@@ -161,7 +162,6 @@ function CountdownTimer() {
           seconds: Math.floor((diff / 1000) % 60),
         });
       } else if (now >= START_DATE && now < END_DATE) {
-        // Fase 2: Evento activo (48 hrs)
         const diff = END_DATE - now;
         setTimeLeft({
           phase: "active",
@@ -171,7 +171,6 @@ function CountdownTimer() {
           seconds: Math.floor((diff / 1000) % 60),
         });
       } else {
-        // Fase 3: Finalizado
         setTimeLeft({
           phase: "ended",
           days: 0,
@@ -188,11 +187,27 @@ function CountdownTimer() {
   }, []);
 
   if (timeLeft.phase === "ended") {
+    // Definir ganador al finalizar
+    const team1Prog = getTeamProgress(teams[0]);
+    const team2Prog = getTeamProgress(teams[1]);
+
+    let winnerText = "";
+    if (team1Prog.tilesDone > team2Prog.tilesDone) {
+      winnerText = `🏆 ¡GANADOR OFICIAL: ${teams[0].name.toUpperCase()} (${team1Prog.tilesDone} vs ${team2Prog.tilesDone} casillas)! 🏆`;
+    } else if (team2Prog.tilesDone > team1Prog.tilesDone) {
+      winnerText = `🏆 ¡GANADOR OFICIAL: ${teams[1].name.toUpperCase()} (${team2Prog.tilesDone} vs ${team1Prog.tilesDone} casillas)! 🏆`;
+    } else {
+      winnerText = `🤝 ¡EMPATE TÉCNICO OFICIAL (${team1Prog.tilesDone} - ${team2Prog.tilesDone} casillas)! 🤝`;
+    }
+
     return (
-      <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-3 text-center mb-6 max-w-lg mx-auto shadow">
-        <span className="font-osrs text-base text-rose-400">
+      <div className="bg-gradient-to-r from-amber-500/20 via-amber-500/30 to-amber-500/20 border-2 border-amber-400 rounded-xl p-4 text-center mb-6 max-w-2xl mx-auto shadow-2xl animate-pulse">
+        <span className="font-osrs text-lg sm:text-xl text-amber-200 block mb-1">
           🏁 EL BINGO HA FINALIZADO 🏁
         </span>
+        <p className="font-osrs text-base sm:text-lg text-amber-400">
+          {winnerText}
+        </p>
       </div>
     );
   }
@@ -407,7 +422,8 @@ export default function App() {
 
   const [zoomImage, setZoomImage] = useState(null);
 
-  const [isCaptain, setIsCaptain] = useState(false);
+  // Registro de modo capitán con ID de equipo desbloqueado
+  const [captainTeamId, setCaptainTeamId] = useState(null);
   const [showPinModal, setShowPinModal] = useState(false);
   const [inputPin, setInputPin] = useState("");
   const [pinError, setPinError] = useState(false);
@@ -538,8 +554,10 @@ export default function App() {
 
   const handlePinSubmit = (e) => {
     e.preventDefault();
-    if (inputPin === CAPTAIN_PIN) {
-      setIsCaptain(true);
+    const expectedPin = CAPTAIN_PINS[activeTeamId];
+
+    if (inputPin === expectedPin) {
+      setCaptainTeamId(activeTeamId);
       setShowPinModal(false);
       setInputPin("");
       setPinError(false);
@@ -564,7 +582,6 @@ export default function App() {
     const currentPhotos = normalizePhotos(selectedTile);
     const maxRequired = selectedTile.requiredCount || 1;
 
-    // Validación de cantidad máxima alcanzada o si ya tiene Enh
     if (
       currentPhotos.length >= maxRequired ||
       currentPhotos.some((p) => p.isEnh)
@@ -599,7 +616,7 @@ export default function App() {
         url: imageUrl,
         by: selectedMember,
         at: new Date().toISOString(),
-        isEnh: isEnhDrop, // Registra si fue Enh
+        isEnh: isEnhDrop,
       };
 
       const updatedPhotos = [...currentPhotos, newPhotoObj];
@@ -633,7 +650,6 @@ export default function App() {
         }),
       );
 
-      // Limpiar campos tras subida exitosa
       setSelectedMember("");
       setIsEnhDrop(false);
     } catch (error) {
@@ -725,6 +741,9 @@ export default function App() {
   const activeTheme = TEAM_THEMES[activeTeamId] || TEAM_THEMES.team1;
   const tilePhotos = selectedTile ? normalizePhotos(selectedTile) : [];
 
+  // Comprobar si el capitán activo tiene permiso en EL EQUIPO ACTUALMENTE SELECCIONADO
+  const isCaptainActiveForCurrentTeam = captainTeamId === activeTeamId;
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-900 text-accent-400 flex items-center justify-center font-bold">
@@ -739,11 +758,11 @@ export default function App() {
       className="accent-transition min-h-screen bg-slate-900 text-slate-100 p-6 flex flex-col items-center relative"
     >
       <div className="absolute top-4 right-6">
-        {isCaptain ? (
+        {isCaptainActiveForCurrentTeam ? (
           <div className="flex items-center gap-2 bg-emerald-900/60 border border-emerald-500/50 px-3 py-1 rounded-full text-xs text-emerald-300 font-semibold">
-            <span>🛡️ Modo Capitán Activo</span>
+            <span>🛡️ Modo Capitán ({currentTeam.name})</span>
             <button
-              onClick={() => setIsCaptain(false)}
+              onClick={() => setCaptainTeamId(null)}
               className="text-slate-400 hover:text-white underline ml-2"
             >
               Salir
@@ -751,10 +770,14 @@ export default function App() {
           </div>
         ) : (
           <button
-            onClick={() => setShowPinModal(true)}
+            onClick={() => {
+              setInputPin("");
+              setPinError(false);
+              setShowPinModal(true);
+            }}
             className="bg-slate-800 hover:bg-slate-700 border border-slate-600 px-3 py-1.5 rounded-lg text-xs font-semibold text-accent-400 transition-colors shadow"
           >
-            🔒 Soy Capitán (Ingresar PIN)
+            🔒 Capitán {currentTeam.name} (Ingresar PIN)
           </button>
         )}
       </div>
@@ -762,12 +785,13 @@ export default function App() {
       <header className="w-full max-w-6xl mb-6">
         <h1
           id="title-osrs"
-          className="text-2xl sm:text-4xl text-center text-accent-400 mb-6 drop-shadow-[0_2px_2px_rgba(0,0,0,0.9)] tracking-wide"
+          className="text-2xl sm:text-4xl text-center text-accent-400 mb-4 drop-shadow-[0_2px_2px_rgba(0,0,0,0.9)] tracking-wide"
         >
           Bingo RCH 14-16 Agosto 2026
         </h1>
 
-        <CountdownTimer />
+        {/* CONTADOR REGRESIVO Y DEFINICIÓN DE GANADOR */}
+        <CountdownTimer teams={teams} />
 
         <Scoreboard
           teams={teams}
@@ -782,7 +806,7 @@ export default function App() {
 
         <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 flex flex-col items-center gap-3">
           <div className="flex justify-center items-center gap-2">
-            {isEditingTitle && isCaptain ? (
+            {isEditingTitle && isCaptainActiveForCurrentTeam ? (
               <input
                 type="text"
                 value={currentTeam.name}
@@ -797,7 +821,7 @@ export default function App() {
                 <h2 className="font-osrs text-2xl sm:text-3xl text-accent-300 py-1">
                   {currentTeam.name || "Sin nombre"}
                 </h2>
-                {isCaptain && (
+                {isCaptainActiveForCurrentTeam && (
                   <button
                     onClick={() => setIsEditingTitle(true)}
                     className="text-xs text-slate-400 hover:text-white underline ml-1"
@@ -816,7 +840,6 @@ export default function App() {
             <span>👥 Integrantes ({currentMembers.length})</span>
             <span className="text-[10px]">{showMembers ? "▲" : "▼"}</span>
           </button>
-          <MVPBadge team={currentTeam} />
 
           {showMembers && (
             <div className="w-full max-w-xl bg-slate-950/90 p-4 rounded-lg border border-slate-700 mt-2">
@@ -835,6 +858,9 @@ export default function App() {
               </div>
             </div>
           )}
+
+          {/* TARJETA DEL MVP */}
+          <MVPBadge team={currentTeam} />
         </div>
       </header>
 
@@ -845,8 +871,6 @@ export default function App() {
             const required = tile.requiredCount || 1;
             const photos = normalizePhotos(tile);
             const uploaded = photos.length;
-
-            // CORRECCIÓN CLAVE: Evaluar completado usando isTileDone(tile)
             const isCompleted = isTileDone(tile);
 
             return (
@@ -995,7 +1019,6 @@ export default function App() {
                             title="Haz clic para agrandar imagen"
                           />
 
-                          {/* Badge de Foto #X arriba a la izquierda */}
                           <span className="absolute top-1.5 left-1.5 bg-slate-950/90 text-accent-300 text-[10px] px-2 py-0.5 rounded border border-slate-700 font-bold shadow pointer-events-none flex items-center gap-1">
                             <span>Foto #{idx + 1}</span>
                             {photo.isEnh && (
@@ -1005,8 +1028,7 @@ export default function App() {
                             )}
                           </span>
 
-                          {/* Botón de eliminar para capitanes */}
-                          {isCaptain && (
+                          {isCaptainActiveForCurrentTeam && (
                             <button
                               onClick={() => handleRemoveImageIndex(idx)}
                               disabled={uploading}
@@ -1017,7 +1039,6 @@ export default function App() {
                             </button>
                           )}
 
-                          {/* Barra inferior con Jugador y Fecha */}
                           <div className="absolute bottom-0 inset-x-0 bg-slate-950/85 backdrop-blur-xs px-2.5 py-1.5 border-t border-slate-800 flex justify-between items-center text-[11px] pointer-events-none">
                             <span className="font-bold text-accent-300 flex items-center gap-1 truncate max-w-[60%]">
                               <span>👤</span>
@@ -1042,7 +1063,7 @@ export default function App() {
 
               {/* Selector de Integrante y Carga de Foto */}
               <div className="space-y-3 pt-2 border-t border-slate-700/60">
-                {isCaptain ? (
+                {isCaptainActiveForCurrentTeam ? (
                   <>
                     {!isTileDone(selectedTile) ? (
                       <>
@@ -1066,7 +1087,6 @@ export default function App() {
                           </select>
                         </div>
 
-                        {/* Checkbox para Enh */}
                         {selectedTile.title?.toLowerCase().includes("enh") && (
                           <label className="flex items-center gap-2 bg-slate-900 p-2 rounded border border-slate-700 cursor-pointer text-xs text-amber-300 font-semibold my-2">
                             <input
@@ -1110,13 +1130,18 @@ export default function App() {
                 ) : (
                   <div className="bg-slate-900/80 p-3 rounded border border-slate-700 text-center">
                     <p className="text-xs text-slate-400 mb-2">
-                      Solo capitanes pueden modificar las capturas.
+                      Solo capitanes de {currentTeam.name} pueden modificar las
+                      capturas.
                     </p>
                     <button
-                      onClick={() => setShowPinModal(true)}
+                      onClick={() => {
+                        setInputPin("");
+                        setPinError(false);
+                        setShowPinModal(true);
+                      }}
                       className="text-xs text-accent-400 hover:text-accent-300 font-bold underline"
                     >
-                      Ingresar PIN de Capitán
+                      Ingresar PIN de Capitán ({currentTeam.name})
                     </button>
                   </div>
                 )}
@@ -1169,10 +1194,10 @@ export default function App() {
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 max-w-sm w-full shadow-2xl">
             <h3 className="font-osrs text-xs text-accent-400 mb-2 text-center">
-              Acceso de Capitán
+              Acceso Capitán - {currentTeam.name}
             </h3>
             <p className="text-xs text-slate-300 mb-4 text-center">
-              Ingresa el PIN para habilitar la subida y modificación de
+              Ingresa el PIN asignado a {currentTeam.name} para modificar sus
               capturas.
             </p>
 
@@ -1188,7 +1213,7 @@ export default function App() {
 
               {pinError && (
                 <p className="text-xs text-rose-400 font-semibold text-center">
-                  PIN incorrecto. Intenta de nuevo.
+                  PIN incorrecto para {currentTeam.name}. Intenta de nuevo.
                 </p>
               )}
 
