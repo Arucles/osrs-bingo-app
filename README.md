@@ -1,4 +1,4 @@
-Interfaz visual para bingos de clan en OSRS.
+Interfaz visual personalizada para bingo de clan RCH en OSRS.
 Hosteado en Vercel, usando Supabase como base de datos.
 
 # React + Vite
