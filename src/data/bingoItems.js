@@ -39,7 +39,7 @@ export const initialTiles = [
     title: "x1 Virtus Piece or x2 Vestige or x1 axe piece",
     description:
       "Pieza de Virtus o x2 Vestige  o una pieza de Spulreaper de cualquiera de los 4 bosses de dt2",
-    requiredCount: 1,
+    requiredCount: 2,
     placeholder: "/tiles/6.jpg",
   },
   {
@@ -181,7 +181,7 @@ export const initialTiles = [
     title: "Extra Dusts",
     description: "Dusts adicionales de CoX o ToB (+0.5 pts por cada Dust)",
     requiredCount: 0,
-    placeholder: "/tiles/5.jpg", // Puedes cambiarlo por la imagen que gustes después
+    placeholder: "/tiles/dusts.jpg", // Puedes cambiarlo por la imagen que gustes después
     isUnlimited: true,
     isExtraTile: true,
   },

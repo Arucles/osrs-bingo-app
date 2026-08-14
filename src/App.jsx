@@ -86,13 +86,19 @@ const normalizePhotos = (tile) => {
 };
 
 const isTileDone = (tile) => {
-  if (tile.isExtraTile) return false; // Las casillas extras no suman completado del cartón base
+  if (tile.isExtraTile) return false;
   const photos = normalizePhotos(tile);
 
-  // Excepción para "x1 Enh or x3 Armour"
-  if (tile.title?.toLowerCase().includes("enh")) {
+  // Excepción para "x1 Enh or x3 Armour" (id: 18)
+  if (tile.id === 18 || tile.title?.toLowerCase().includes("enh")) {
     const hasEnh = photos.some((p) => p.isEnh);
     if (hasEnh) return true;
+  }
+
+  // Excepción para "x1 Virtus Piece or x2 Vestige or x1 axe piece" (id: 6)
+  if (tile.id === 6 || tile.title?.toLowerCase().includes("virtus")) {
+    const hasInstantDt2 = photos.some((p) => p.isVirtus || p.isAxe);
+    if (hasInstantDt2) return true;
   }
 
   return photos.length >= (tile.requiredCount || 1);
@@ -107,7 +113,6 @@ const getTeamProgress = (team) => {
     0,
   );
 
-  // Cálculo de Puntos Extra (+0.5 por cada foto en Extra Dusts (26) y Extra Pets (27))
   let extraPoints = 0;
   team.tiles.forEach((tile) => {
     const photos = normalizePhotos(tile);
@@ -444,7 +449,11 @@ export default function App() {
   const [showPinModal, setShowPinModal] = useState(false);
   const [inputPin, setInputPin] = useState("");
   const [pinError, setPinError] = useState(false);
+
+  // Estados de ítems que completan casillas instantáneamente
   const [isEnhDrop, setIsEnhDrop] = useState(false);
+  const [isVirtusDrop, setIsVirtusDrop] = useState(false);
+  const [isAxeDrop, setIsAxeDrop] = useState(false);
 
   const isCaptainActiveForCurrentTeam = captainTeamId === activeTeamId;
   const currentTeam = teams.find((t) => t.id === activeTeamId);
@@ -455,6 +464,12 @@ export default function App() {
 
   const mainGridTiles = currentTeam?.tiles.filter((t) => !t.isExtraTile) || [];
   const extraTiles = currentTeam?.tiles.filter((t) => t.isExtraTile) || [];
+
+  const resetSpecialItemStates = () => {
+    setIsEnhDrop(false);
+    setIsVirtusDrop(false);
+    setIsAxeDrop(false);
+  };
 
   useEffect(() => {
     fetchInitialData();
@@ -541,6 +556,8 @@ export default function App() {
     selectedTileId,
     selectedMember,
     isEnhDrop,
+    isVirtusDrop,
+    isAxeDrop,
     isCaptainActiveForCurrentTeam,
     uploading,
     activeTeamId,
@@ -646,11 +663,10 @@ export default function App() {
     const currentPhotos = normalizePhotos(selectedTile);
     const maxRequired = selectedTile.requiredCount || 1;
 
-    // Si NO es una casilla con fotos ilimitadas
     if (!selectedTile.isUnlimited) {
       if (
         currentPhotos.length >= maxRequired ||
-        currentPhotos.some((p) => p.isEnh)
+        currentPhotos.some((p) => p.isEnh || p.isVirtus || p.isAxe)
       ) {
         alert("Esta casilla ya se encuentra completada.");
         return;
@@ -684,6 +700,8 @@ export default function App() {
         by: selectedMember,
         at: new Date().toISOString(),
         isEnh: isEnhDrop,
+        isVirtus: isVirtusDrop,
+        isAxe: isAxeDrop,
       };
 
       const updatedPhotos = [...currentPhotos, newPhotoObj];
@@ -718,7 +736,7 @@ export default function App() {
       );
 
       setSelectedMember("");
-      setIsEnhDrop(false);
+      resetSpecialItemStates();
     } catch (error) {
       alert("Error al subir imagen: " + error.message);
     } finally {
@@ -861,7 +879,7 @@ export default function App() {
             setActiveTeamId(id);
             setSelectedTileId(null);
             setSelectedMember("");
-            setIsEnhDrop(false);
+            resetSpecialItemStates();
           }}
         />
 
@@ -925,7 +943,7 @@ export default function App() {
       </header>
 
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Grilla 5x5 + Sección Puntos Extras Centrada (Dusts & Pets) */}
+        {/* Grilla 5x5 + Sección Puntos Extras Centrada */}
         <div className="lg:col-span-3 flex flex-col gap-4">
           <div className="grid grid-cols-5 gap-3 bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-2xl">
             {mainGridTiles.map((tile) => {
@@ -940,7 +958,7 @@ export default function App() {
                   onClick={() => {
                     setSelectedTileId(tile.id);
                     setSelectedMember("");
-                    setIsEnhDrop(false);
+                    resetSpecialItemStates();
                   }}
                   className={`group h-32 sm:h-36 rounded-lg border transition-all relative overflow-hidden flex flex-col bg-slate-950 ${
                     selectedTileId === tile.id
@@ -1030,7 +1048,7 @@ export default function App() {
                     onClick={() => {
                       setSelectedTileId(extraTile.id);
                       setSelectedMember("");
-                      setIsEnhDrop(false);
+                      resetSpecialItemStates();
                     }}
                     className={`w-full sm:w-1/2 max-w-xs h-28 rounded-xl border transition-all relative overflow-hidden flex items-center p-3 gap-3 bg-slate-950 shadow-xl ${
                       isSelected
@@ -1143,6 +1161,16 @@ export default function App() {
                                 ✨ ENH
                               </span>
                             )}
+                            {photo.isVirtus && (
+                              <span className="text-purple-400 font-extrabold">
+                                ✨ VIRTUS
+                              </span>
+                            )}
+                            {photo.isAxe && (
+                              <span className="text-rose-400 font-extrabold">
+                                🪓 AXE
+                              </span>
+                            )}
                           </span>
 
                           {isCaptainActiveForCurrentTeam && (
@@ -1204,7 +1232,11 @@ export default function App() {
                           </select>
                         </div>
 
-                        {selectedTile.title?.toLowerCase().includes("enh") && (
+                        {/* Checkbox para Casilla 18: Enhanced */}
+                        {(selectedTile.id === 18 ||
+                          selectedTile.title
+                            ?.toLowerCase()
+                            .includes("enh")) && (
                           <label className="flex items-center gap-2 bg-slate-900 p-2 rounded border border-slate-700 cursor-pointer text-xs text-amber-300 font-semibold my-2">
                             <input
                               type="checkbox"
@@ -1214,6 +1246,44 @@ export default function App() {
                             />
                             <span>✨ ¡Fue un Enhanced Weapon Seed (Enh)!</span>
                           </label>
+                        )}
+
+                        {/* Checkboxes para Casilla 6: Virtus o Axe */}
+                        {(selectedTile.id === 6 ||
+                          selectedTile.title
+                            ?.toLowerCase()
+                            .includes("virtus")) && (
+                          <div className="space-y-1.5 my-2">
+                            <label className="flex items-center gap-2 bg-slate-900 p-2 rounded border border-slate-700 cursor-pointer text-xs text-purple-300 font-semibold">
+                              <input
+                                type="checkbox"
+                                checked={isVirtusDrop}
+                                onChange={(e) => {
+                                  setIsVirtusDrop(e.target.checked);
+                                  if (e.target.checked) setIsAxeDrop(false);
+                                }}
+                                className="accent-purple-500 rounded"
+                              />
+                              <span>
+                                ✨ Fue pieza de Virtus (Completa casilla)
+                              </span>
+                            </label>
+
+                            <label className="flex items-center gap-2 bg-slate-900 p-2 rounded border border-slate-700 cursor-pointer text-xs text-rose-300 font-semibold">
+                              <input
+                                type="checkbox"
+                                checked={isAxeDrop}
+                                onChange={(e) => {
+                                  setIsAxeDrop(e.target.checked);
+                                  if (e.target.checked) setIsVirtusDrop(false);
+                                }}
+                                className="accent-rose-500 rounded"
+                              />
+                              <span>
+                                🪓 Fue pieza de Axe (Completa casilla)
+                              </span>
+                            </label>
+                          </div>
                         )}
 
                         {/* Zona de Pegar (Ctrl+V) / Drag & Drop */}
