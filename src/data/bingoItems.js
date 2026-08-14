@@ -8,8 +8,8 @@ export const initialTiles = [
   },
   {
     id: 2,
-    title: "Jad Speedrun",
-    description: "Pb gm Jad",
+    title: "Voidwaker piece",
+    description: "Cualquier parte de Voidwaker",
     requiredCount: 1,
     placeholder: "/tiles/2.jpg",
   },
@@ -36,9 +36,9 @@ export const initialTiles = [
   },
   {
     id: 6,
-    title: "x1 Virtus Piece or Vestige",
+    title: "x1 Virtus Piece or x2 Vestige or x1 axe piece",
     description:
-      "Pieza de Virtus o Vestige de cualquiera de los 4 bosses de dt2",
+      "Pieza de Virtus o x2 Vestige  o una pieza de Spulreaper de cualquiera de los 4 bosses de dt2",
     requiredCount: 1,
     placeholder: "/tiles/6.jpg",
   },
@@ -58,8 +58,8 @@ export const initialTiles = [
   },
   {
     id: 9,
-    title: "*Trident & Tentacle",
-    description: "Trident y Tentacle de Kraken",
+    title: "Dhw & Tome or Trident & Tentacle",
+    description: "Dhw y Tome / Trident y Tent",
     requiredCount: 2,
     placeholder: "/tiles/9.jpg",
   },
@@ -175,5 +175,23 @@ export const initialTiles = [
     description: "2 uniques de Cerberus menos el teleport",
     requiredCount: 2,
     placeholder: "/tiles/25.jpg",
+  },
+  {
+    id: 26,
+    title: "Extra Dusts",
+    description: "Dusts adicionales de CoX o ToB (+0.5 pts por cada Dust)",
+    requiredCount: 0,
+    placeholder: "/tiles/5.jpg", // Puedes cambiarlo por la imagen que gustes después
+    isUnlimited: true,
+    isExtraTile: true,
+  },
+  {
+    id: 27,
+    title: "Extra Pets",
+    description: "Pets adicionales del bingo (+0.5 pts por cada Pet extra)",
+    requiredCount: 0,
+    placeholder: "/tiles/17.jpg",
+    isUnlimited: true,
+    isExtraTile: true,
   },
 ];

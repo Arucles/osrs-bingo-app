@@ -86,6 +86,7 @@ const normalizePhotos = (tile) => {
 };
 
 const isTileDone = (tile) => {
+  if (tile.isExtraTile) return false; // Las casillas extras no suman completado del cartón base
   const photos = normalizePhotos(tile);
 
   // Excepción para "x1 Enh or x3 Armour"
@@ -94,19 +95,34 @@ const isTileDone = (tile) => {
     if (hasEnh) return true;
   }
 
-  // Comportamiento normal por conteo
   return photos.length >= (tile.requiredCount || 1);
 };
 
 const getTeamProgress = (team) => {
-  const tilesDone = team.tiles.filter(isTileDone).length;
+  const gridTiles = team.tiles.filter((t) => !t.isExtraTile);
+  const tilesDone = gridTiles.filter(isTileDone).length;
+
   const totalPhotos = team.tiles.reduce(
     (sum, t) => sum + normalizePhotos(t).length,
     0,
   );
+
+  // Cálculo de Puntos Extra (+0.5 por cada foto en Extra Dusts (26) y Extra Pets (27))
+  let extraPoints = 0;
+  team.tiles.forEach((tile) => {
+    const photos = normalizePhotos(tile);
+    if (tile.id === 26 || tile.id === 27) {
+      extraPoints += photos.length * 0.5;
+    }
+  });
+
+  const totalPoints = tilesDone + extraPoints;
+
   return {
     tilesDone,
-    totalTiles: team.tiles.length,
+    totalTiles: gridTiles.length,
+    extraPoints,
+    totalPoints,
     photos: totalPhotos,
   };
 };
@@ -190,12 +206,12 @@ function CountdownTimer({ teams }) {
     const team2Prog = getTeamProgress(teams[1]);
 
     let winnerText = "";
-    if (team1Prog.tilesDone > team2Prog.tilesDone) {
-      winnerText = `🏆 ¡GANADOR OFICIAL: ${teams[0].name.toUpperCase()} (${team1Prog.tilesDone} vs ${team2Prog.tilesDone} casillas)! 🏆`;
-    } else if (team2Prog.tilesDone > team1Prog.tilesDone) {
-      winnerText = `🏆 ¡GANADOR OFICIAL: ${teams[1].name.toUpperCase()} (${team2Prog.tilesDone} vs ${team1Prog.tilesDone} casillas)! 🏆`;
+    if (team1Prog.totalPoints > team2Prog.totalPoints) {
+      winnerText = `🏆 ¡GANADOR OFICIAL: ${teams[0].name.toUpperCase()} (${team1Prog.totalPoints} vs ${team2Prog.totalPoints} pts)! 🏆`;
+    } else if (team2Prog.totalPoints > team1Prog.totalPoints) {
+      winnerText = `🏆 ¡GANADOR OFICIAL: ${teams[1].name.toUpperCase()} (${team2Prog.totalPoints} vs ${team1Prog.totalPoints} pts)! 🏆`;
     } else {
-      winnerText = `🤝 ¡EMPATE TÉCNICO OFICIAL (${team1Prog.tilesDone} - ${team2Prog.tilesDone} casillas)! 🤝`;
+      winnerText = `🤝 ¡EMPATE TÉCNICO OFICIAL (${team1Prog.totalPoints} - ${team2Prog.totalPoints} pts)! 🤝`;
     }
 
     return (
@@ -309,18 +325,16 @@ function Scoreboard({ teams, activeTeamId, onSelectTeam }) {
   }));
 
   const ranked = [...stats].sort(
-    (a, b) => b.progress.tilesDone - a.progress.tilesDone,
+    (a, b) => b.progress.totalPoints - a.progress.totalPoints,
   );
 
   const [first, second] = ranked;
-  const diffTiles = second
-    ? first.progress.tilesDone - second.progress.tilesDone
+  const diffPoints = second
+    ? first.progress.totalPoints - second.progress.totalPoints
     : 0;
-  const isTied = !second || diffTiles === 0;
+  const isTied = !second || diffPoints === 0;
 
-  const leadLabel = isTied
-    ? "Empate"
-    : `${first.team.name} +${diffTiles} casilla${diffTiles === 1 ? "" : "s"}`;
+  const leadLabel = isTied ? "Empate" : `${first.team.name} +${diffPoints} pts`;
 
   return (
     <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 mb-4">
@@ -339,7 +353,7 @@ function Scoreboard({ teams, activeTeamId, onSelectTeam }) {
             (progress.tilesDone / progress.totalTiles) * 100,
           );
           const isLeading =
-            !isTied && first.team.id === team.id && progress.tilesDone > 0;
+            !isTied && first.team.id === team.id && progress.totalPoints > 0;
           const isActive = activeTeamId === team.id;
 
           return (
@@ -367,12 +381,15 @@ function Scoreboard({ teams, activeTeamId, onSelectTeam }) {
                 )}
               </div>
 
-              <div className="flex items-baseline gap-1 mb-2.5">
+              <div className="flex items-baseline gap-2 mb-2.5">
                 <span className="text-3xl font-bold text-accent-300 leading-none">
-                  {progress.tilesDone}
+                  {progress.totalPoints}
                 </span>
-                <span className="text-[11px] text-slate-400">
-                  /{progress.totalTiles} casillas
+                <span className="text-xs text-slate-400 font-semibold">
+                  pts ({progress.tilesDone}/{progress.totalTiles} casillas
+                  {progress.extraPoints > 0 &&
+                    ` +${progress.extraPoints} extra`}
+                  )
                 </span>
               </div>
 
@@ -420,7 +437,6 @@ export default function App() {
 
   const [zoomImage, setZoomImage] = useState(null);
 
-  // Cargar capitán persistente desde localStorage
   const [captainTeamId, setCaptainTeamId] = useState(() => {
     return localStorage.getItem("bingo_captain_team") || null;
   });
@@ -436,6 +452,9 @@ export default function App() {
   const currentMembers = TEAM_MEMBERS[activeTeamId] || [];
   const activeTheme = TEAM_THEMES[activeTeamId] || TEAM_THEMES.team1;
   const tilePhotos = selectedTile ? normalizePhotos(selectedTile) : [];
+
+  const mainGridTiles = currentTeam?.tiles.filter((t) => !t.isExtraTile) || [];
+  const extraTiles = currentTeam?.tiles.filter((t) => t.isExtraTile) || [];
 
   useEffect(() => {
     fetchInitialData();
@@ -496,7 +515,6 @@ export default function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Listener global para Ctrl + V (Paste)
   useEffect(() => {
     const handlePaste = (e) => {
       if (!isCaptainActiveForCurrentTeam || !selectedTileId || uploading)
@@ -628,12 +646,15 @@ export default function App() {
     const currentPhotos = normalizePhotos(selectedTile);
     const maxRequired = selectedTile.requiredCount || 1;
 
-    if (
-      currentPhotos.length >= maxRequired ||
-      currentPhotos.some((p) => p.isEnh)
-    ) {
-      alert("Esta casilla ya se encuentra completada.");
-      return;
+    // Si NO es una casilla con fotos ilimitadas
+    if (!selectedTile.isUnlimited) {
+      if (
+        currentPhotos.length >= maxRequired ||
+        currentPhotos.some((p) => p.isEnh)
+      ) {
+        alert("Esta casilla ya se encuentra completada.");
+        return;
+      }
     }
 
     if (!selectedMember) {
@@ -789,6 +810,10 @@ export default function App() {
     );
   }
 
+  const isSelectedTileFull = selectedTile
+    ? !selectedTile.isUnlimited && isTileDone(selectedTile)
+    : false;
+
   return (
     <div
       style={activeTheme.vars}
@@ -900,94 +925,148 @@ export default function App() {
       </header>
 
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <div className="lg:col-span-3 grid grid-cols-5 gap-3 bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-2xl">
-          {currentTeam.tiles.map((tile) => {
-            const required = tile.requiredCount || 1;
-            const photos = normalizePhotos(tile);
-            const uploaded = photos.length;
-            const isCompleted = isTileDone(tile);
+        {/* Grilla 5x5 + Sección Puntos Extras Centrada (Dusts & Pets) */}
+        <div className="lg:col-span-3 flex flex-col gap-4">
+          <div className="grid grid-cols-5 gap-3 bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-2xl">
+            {mainGridTiles.map((tile) => {
+              const required = tile.requiredCount || 1;
+              const photos = normalizePhotos(tile);
+              const uploaded = photos.length;
+              const isCompleted = isTileDone(tile);
 
-            return (
-              <button
-                key={tile.id}
-                onClick={() => {
-                  setSelectedTileId(tile.id);
-                  setSelectedMember("");
-                  setIsEnhDrop(false);
-                }}
-                className={`group h-32 sm:h-36 rounded-lg border transition-all relative overflow-hidden flex flex-col bg-slate-950 ${
-                  selectedTileId === tile.id
-                    ? "border-accent-400 ring-2 ring-accent-400/50 scale-[1.02] z-20"
-                    : isCompleted
-                      ? "border-emerald-500/60 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
-                      : uploaded > 0
-                        ? "border-accent-500/50"
-                        : "border-slate-800 hover:border-slate-700"
-                }`}
-              >
-                <div className="relative flex-1 min-h-0 w-full">
-                  <img
-                    src={tile.placeholder}
-                    alt={tile.title}
-                    className={`w-full h-full object-contain pointer-events-none transition-all ${
-                      isCompleted
-                        ? ""
-                        : "opacity-75 saturate-[0.6] group-hover:opacity-100 group-hover:saturate-100"
-                    }`}
-                  />
-
-                  {isCompleted && (
-                    <div className="absolute inset-0 bg-emerald-400/10 pointer-events-none" />
-                  )}
-
-                  {required > 1 && (
-                    <span
-                      className={`absolute top-1.5 left-1.5 z-30 text-[10px] px-1.5 py-0.5 rounded font-bold shadow pointer-events-none border ${
-                        isCompleted
-                          ? "bg-emerald-500 text-slate-950 border-emerald-300"
-                          : "bg-slate-950/90 text-accent-300 border-accent-500/50"
-                      }`}
-                    >
-                      {uploaded}/{required}
-                    </span>
-                  )}
-
-                  {uploaded > 0 && (
-                    <span className="absolute top-1.5 right-1.5 z-30 text-[10px] bg-slate-950/90 border border-slate-600 text-slate-200 px-1.5 py-0.5 rounded font-bold shadow pointer-events-none">
-                      📷 {uploaded}
-                    </span>
-                  )}
-
-                  {isCompleted && (
-                    <div className="absolute bottom-1 right-1.5 z-30 bg-emerald-500 text-slate-950 rounded-full p-1 shadow-lg border border-emerald-300 flex items-center justify-center">
-                      <svg
-                        className="w-3.5 h-3.5 stroke-[3.5]"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M4.5 12.75l6 6 9-13.5"
-                        />
-                      </svg>
-                    </div>
-                  )}
-                </div>
-
-                <span
-                  className={`z-20 h-9 shrink-0 flex items-center justify-center px-1.5 text-[10px] sm:text-[11px] leading-tight text-center w-full border-t pointer-events-none ${
-                    isCompleted
-                      ? "bg-emerald-950/80 text-emerald-200 font-bold border-emerald-500/40"
-                      : "bg-slate-900 text-slate-200 font-medium border-slate-800"
+              return (
+                <button
+                  key={tile.id}
+                  onClick={() => {
+                    setSelectedTileId(tile.id);
+                    setSelectedMember("");
+                    setIsEnhDrop(false);
+                  }}
+                  className={`group h-32 sm:h-36 rounded-lg border transition-all relative overflow-hidden flex flex-col bg-slate-950 ${
+                    selectedTileId === tile.id
+                      ? "border-accent-400 ring-2 ring-accent-400/50 scale-[1.02] z-20"
+                      : isCompleted
+                        ? "border-emerald-500/60 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+                        : uploaded > 0
+                          ? "border-accent-500/50"
+                          : "border-slate-800 hover:border-slate-700"
                   }`}
                 >
-                  <span className="line-clamp-2">{tile.title}</span>
-                </span>
-              </button>
-            );
-          })}
+                  <div className="relative flex-1 min-h-0 w-full">
+                    <img
+                      src={tile.placeholder}
+                      alt={tile.title}
+                      className={`w-full h-full object-contain pointer-events-none transition-all ${
+                        isCompleted
+                          ? ""
+                          : "opacity-75 saturate-[0.6] group-hover:opacity-100 group-hover:saturate-100"
+                      }`}
+                    />
+
+                    {isCompleted && (
+                      <div className="absolute inset-0 bg-emerald-400/10 pointer-events-none" />
+                    )}
+
+                    {required > 1 && (
+                      <span
+                        className={`absolute top-1.5 left-1.5 z-30 text-[10px] px-1.5 py-0.5 rounded font-bold shadow pointer-events-none border ${
+                          isCompleted
+                            ? "bg-emerald-500 text-slate-950 border-emerald-300"
+                            : "bg-slate-950/90 text-accent-300 border-accent-500/50"
+                        }`}
+                      >
+                        {uploaded}/{required}
+                      </span>
+                    )}
+
+                    {uploaded > 0 && (
+                      <span className="absolute top-1.5 right-1.5 z-30 text-[10px] bg-slate-950/90 border border-slate-600 text-slate-200 px-1.5 py-0.5 rounded font-bold shadow pointer-events-none">
+                        📷 {uploaded}
+                      </span>
+                    )}
+
+                    {isCompleted && (
+                      <div className="absolute bottom-1 right-1.5 z-30 bg-emerald-500 text-slate-950 rounded-full p-1 shadow-lg border border-emerald-300 flex items-center justify-center">
+                        <svg
+                          className="w-3.5 h-3.5 stroke-[3.5]"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M4.5 12.75l6 6 9-13.5"
+                          />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+
+                  <span
+                    className={`z-20 h-9 shrink-0 flex items-center justify-center px-1.5 text-[10px] sm:text-[11px] leading-tight text-center w-full border-t pointer-events-none ${
+                      isCompleted
+                        ? "bg-emerald-950/80 text-emerald-200 font-bold border-emerald-500/40"
+                        : "bg-slate-900 text-slate-200 font-medium border-slate-800"
+                    }`}
+                  >
+                    <span className="line-clamp-2">{tile.title}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Tarjetas Centradas de Puntos Extras (Dusts & Pets) */}
+          {extraTiles.length > 0 && (
+            <div className="flex flex-col sm:flex-row justify-center gap-3">
+              {extraTiles.map((extraTile) => {
+                const photosCount = normalizePhotos(extraTile).length;
+                const isSelected = selectedTileId === extraTile.id;
+
+                return (
+                  <button
+                    key={extraTile.id}
+                    onClick={() => {
+                      setSelectedTileId(extraTile.id);
+                      setSelectedMember("");
+                      setIsEnhDrop(false);
+                    }}
+                    className={`w-full sm:w-1/2 max-w-xs h-28 rounded-xl border transition-all relative overflow-hidden flex items-center p-3 gap-3 bg-slate-950 shadow-xl ${
+                      isSelected
+                        ? "border-amber-400 ring-2 ring-amber-400/50 scale-[1.02] z-20"
+                        : "border-slate-800 hover:border-slate-700"
+                    }`}
+                  >
+                    <div className="w-20 h-20 shrink-0 relative">
+                      <img
+                        src={extraTile.placeholder}
+                        alt={extraTile.title}
+                        className="w-full h-full object-contain pointer-events-none"
+                      />
+                      {photosCount > 0 && (
+                        <span className="absolute -top-1 -right-1 z-30 text-[10px] bg-amber-500 text-slate-950 px-1.5 py-0.5 rounded font-bold shadow pointer-events-none">
+                          📷 {photosCount}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col text-left justify-center min-w-0">
+                      <span className="font-osrs text-base text-amber-300 truncate">
+                        ✨ {extraTile.title}
+                      </span>
+                      <p className="text-[11px] text-slate-400 leading-snug line-clamp-2 mt-0.5">
+                        {extraTile.description}
+                      </p>
+                      <span className="text-[10px] text-amber-400/80 font-bold mt-1">
+                        +0.5 pts por cada foto
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Panel Lateral de Detalle */}
@@ -1005,7 +1084,9 @@ export default function App() {
                 <p className="text-sm font-bold text-slate-100 bg-slate-900 p-2.5 rounded border border-slate-700 flex justify-between items-center gap-2">
                   <span>{selectedTile.title}</span>
                   <span className="text-xs text-accent-400 bg-accent-500/10 px-2 py-0.5 rounded border border-accent-500/20 shrink-0">
-                    Req: {selectedTile.requiredCount || 1}
+                    {selectedTile.isUnlimited
+                      ? "Ilimitado"
+                      : `Req: ${selectedTile.requiredCount || 1}`}
                   </span>
                 </p>
               </div>
@@ -1022,8 +1103,10 @@ export default function App() {
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-xs text-slate-400 uppercase tracking-wider block font-semibold">
-                    Pruebas ({tilePhotos.length}/
-                    {selectedTile.requiredCount || 1}):
+                    Pruebas ({tilePhotos.length}
+                    {!selectedTile.isUnlimited &&
+                      `/${selectedTile.requiredCount || 1}`}
+                    ):
                   </span>
                   {isTileDone(selectedTile) && (
                     <span className="text-[10px] text-emerald-400 font-bold uppercase">
@@ -1099,7 +1182,7 @@ export default function App() {
               <div className="space-y-3 pt-2 border-t border-slate-700/60">
                 {isCaptainActiveForCurrentTeam ? (
                   <>
-                    {!isTileDone(selectedTile) ? (
+                    {!isSelectedTileFull ? (
                       <>
                         <div>
                           <label className="text-xs text-slate-300 uppercase tracking-wider block font-semibold mb-1">
@@ -1207,8 +1290,8 @@ export default function App() {
             </div>
           ) : (
             <p className="text-slate-400 text-xs text-center py-8">
-              Haz click en cualquiera de los 25 cuadros de la grilla para ver
-              las fotos subidas.
+              Haz click en cualquiera de las casillas o en los Puntos Extras
+              para ver las fotos subidas.
             </p>
           )}
         </div>
