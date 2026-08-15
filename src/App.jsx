@@ -23,6 +23,8 @@ const TEAM_MEMBERS = {
     "Karlos",
     "Conejo",
     "Tio Zombie",
+    "El Blame",
+    "Cisapalasmais",
   ],
   team2: [
     "Rhaegnar",
@@ -38,6 +40,8 @@ const TEAM_MEMBERS = {
     "Zorrinha",
     "SanSebastian",
     "Sickz",
+    "Intrepidosky",
+    "Clonazepunk",
   ],
 };
 
